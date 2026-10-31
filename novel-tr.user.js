@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.3.2
+// @version      1.3.3
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -349,8 +349,9 @@
     var res = new Array(chunks.length), nextI = 0;
     var say = function (m) { ctl.status = m; ctl.onStatus && ctl.onStatus(m); };
     var failed = false;
+    function lim() { return ctl.limit == null ? chunks.length : Math.min(chunks.length, ctl.limit); }
     async function worker() {
-      while (nextI < chunks.length && !failed) {
+      while (nextI < lim() && !failed) {
         var i = nextI++;
         if (ctl.cancel) throw new Error('\ucde8\uc18c\ub428');
         var r;
@@ -362,7 +363,13 @@
         onPart && onPart(i, r.lines, title);
       }
     }
-    await Promise.all([worker(), worker()]); // \ub450 \ub369\uc5b4\ub9ac\uc529 \ub3d9\uc2dc\uc5d0
+    var workers = [worker(), worker()]; // \ub450 \ub369\uc5b4\ub9ac\uc529 \ub3d9\uc2dc\uc5d0
+    for (;;) {
+      await Promise.all(workers);
+      if (!failed && nextI < lim()) { workers = [worker(), worker()]; continue; } // \ubbf8\ub9ac \ubc88\uc5ed \uc911\uc5d0 \ud654\ub97c \uc5f4\uc5b4 \uc81c\ud55c\uc774 \ud480\ub9b0 \uacbd\uc6b0
+      break;
+    }
+    for (var q = 0; q < chunks.length; q++) if (!res[q]) return { partial: true, title: title }; // \uc55e\ubd80\ubd84\ub9cc \ubbf8\ub9ac \ubc88\uc5ed\ud55c \uc0c1\ud0dc (\uc800\uc7a5 \uc548 \ud568)
     res.forEach(function (ls) { outLines = outLines.concat(ls); parts.push(ls.length); });
     if (!outLines.length) throw new Error('\ubc88\uc5ed \uacb0\uacfc\uac00 \ube44\uc5b4 \uc788\uc5b4\uc694');
     var v = { title: title, lines: outLines, parts: parts };
@@ -437,7 +444,7 @@
     ['mw', '\ubcf8\ubb38 \ud3ed', 40, 400, 1000, function (v) { return v + 'px'; }]
   ];
   var PK = 'nvtrPrefs';
-  var DEF = { theme: 'auto', font: 'pretendard', fs: 18, lh: 1.8, ps: 0.9, mw: 680, pad: 24, ind: 0, auto: 1, ts: 0, v: 2 };
+  var DEF = { theme: 'auto', font: 'pretendard', fs: 18, lh: 1.8, ps: 0.9, mw: 680, pad: 24, ind: 0, auto: 1, pre: 1, ts: 0, v: 2 };
   function fill(p) { p = p || {}; Object.keys(DEF).forEach(function (k) { if (p[k] == null) p[k] = DEF[k]; }); return p; }
   var prefs = gget(PK, {}) || {};
   if (!prefs.v) { if (!prefs.font || prefs.font === 'sys') prefs.font = 'pretendard'; prefs.v = 2; } // \uace0\ub515(\ud504\ub9ac\ud150\ub2e4\ub4dc)\uc744 \uc0c8 \uae30\ubcf8\uc73c\ub85c
@@ -694,7 +701,9 @@
     });
     h += '<div class="lb">\uae30\ud0c0</div><div class="chips">' +
       '<button class="ch" data-act="ind" data-v="0">\ub4e4\uc5ec\uc4f0\uae30 \ub054</button><button class="ch" data-act="ind" data-v="1">\ub4e4\uc5ec\uc4f0\uae30 \ucf2c</button>' +
-      '<button class="ch" data-act="autoNext">\ub2e4\uc74c \ud654 \uc790\ub3d9 \uc774\uc5b4\ubd99\uc774\uae30</button></div>';
+      '<button class="ch" data-act="autoNext">\ub2e4\uc74c \ud654 \uc790\ub3d9 \uc774\uc5b4\ubd99\uc774\uae30</button></div>' +
+      '<div class="lb">\ub2e4\uc74c \ud654 \ubbf8\ub9ac \ubc88\uc5ed</div><div class="chips">' +
+      '<button class="ch" data-act="pre" data-v="0">\ub054</button><button class="ch" data-act="pre" data-v="1">\uc55e\ubd80\ubd84\ub9cc</button><button class="ch" data-act="pre" data-v="2">\uc804\uccb4</button></div>';
     h += '<button class="wide" data-act="retrans">' + I.redo + '\uc9c0\uae08 \ubcf4\ub294 \ud654 \ub2e4\uc2dc \ubc88\uc5ed</button>' +
       '<button class="wide" data-act="reset">\ubcf4\uae30 \uc124\uc815 \ucd08\uae30\ud654</button>' +
       '<button class="wide" data-act="api">\ubc88\uc5ed \uc124\uc815 (\ud0a4 \u00b7 \ubaa8\ub378 \u00b7 \uc6a9\uc5b4\uc9d1)</button>';
@@ -705,6 +714,7 @@
     [].forEach.call(pn.querySelectorAll('[data-act=font]'), function (b) { b.classList.toggle('sel', b.dataset.v === prefs.font); });
     [].forEach.call(pn.querySelectorAll('[data-act=ind]'), function (b) { b.classList.toggle('sel', +b.dataset.v === +prefs.ind); });
     pn.querySelector('[data-act=autoNext]').classList.toggle('sel', !!prefs.auto);
+    [].forEach.call(pn.querySelectorAll('[data-act=pre]'), function (b) { b.classList.toggle('sel', +b.dataset.v === +prefs.pre); });
     STEPS.forEach(function (s) { pn.querySelector('b[data-k=' + s[0] + ']').textContent = s[5](prefs[s[0]]); });
   }
   function openSheet() { buildPanel(); pn.dataset.mode = 'set'; syncPanel(); pn.scrollTop = 0; showSheet(); }
@@ -762,14 +772,17 @@
 
   // ===================== \ud654 \ud45c\uc2dc =====================
   var pending = {}, chapters = [], appending = false;
-  function startTranslate(ch, keep, title) {
-    if (!pending[ch.url]) pending[ch.url] = { ch: ch, parts: {}, title: null, done: null, subs: [], ctl: { keep: keep, title: title } };
+  function startTranslate(ch, keep, title, limit) {
+    if (!pending[ch.url]) pending[ch.url] = { ch: ch, parts: {}, title: null, done: null, subs: [], ctl: { keep: keep, title: title, limit: limit } };
     var P = pending[ch.url];
     if (!P.done) {
       P.done = translate(ch, function (ci, ls, t) { P.title = t; P.parts[ci] = ls; P.lastProg = Date.now(); P.subs.forEach(function (f) { f(ci, ls, t); }); }, P.ctl);
+      P.done.then(function () { P.finished = true; }, function () { P.finished = true; });
     }
     return P;
   }
+  // \ubbf8\ub9ac \ubc88\uc5ed: 0 \ub054 \u00b7 1 \uc55e\ubd80\ubd84\ub9cc \u00b7 2 \uc804\uccb4
+  function preLimit() { return prefs.pre === 2 ? null : prefs.pre === 0 ? 0 : 1; }
   // \ubc88\uc5ed \uc911\uc5d0 \uba48\ucdc4\uc744 \ub54c: \ub05d\ub09c \ubd80\ubd84\uc740 \uc0b4\ub9ac\uace0 \ub098\uba38\uc9c0\ub9cc \uc0c8\ub85c \uc2dc\uc791
   function restartTranslate(item) {
     var old = pending[item.ch.url], keep = {}, title = null;
@@ -824,7 +837,7 @@
     var str = String(v); if (T[i].length > str.length && T[i][0] === '0') str = (Array(T[i].length + 1).join('0') + str).slice(-T[i].length);
     T[i] = str; return T.join('');
   }
-  async function prefetch(url) {
+  async function prefetch(url, limit) {
     try {
       var ch = null, err = null;
       try { ch = chapterFull(await getDoc(url), url); } catch (e) { err = e; }
@@ -838,7 +851,7 @@
       }
       if (!ch.next) { var g = guessUrl(url, 'next'); if (g) { ch.next = g; ch.guessed = 1; } }
       if (!ch.prev) { var gp = guessUrl(url, 'prev'); if (gp) ch.prev = gp; }
-      startTranslate(ch); return ch;
+      if (limit !== 0) startTranslate(ch, null, null, limit); return ch;
     }
     catch (e) { return { err: e }; }
   }
@@ -863,6 +876,11 @@
     });
     var oi = old ? chapters.indexOf(old) : -1;
     if (oi >= 0) { old.sec.replaceWith(sec); chapters[oi] = item; } else { wrap.appendChild(sec); chapters.push(item); }
+    var P0 = pending[ch.url];
+    if (P0 && P0.ctl.limit != null) { // \uc55e\ubd80\ubd84\ub9cc \ubbf8\ub9ac \ubc88\uc5ed\ud574 \ub454 \ud654: \ub098\uba38\uc9c0\ub3c4 \ubc88\uc5ed
+      P0.ctl.limit = null;
+      if (P0.finished) { delete pending[ch.url]; keep = keep || P0.parts; keepTitle = keepTitle || P0.title; }
+    }
     var P = startTranslate(ch, keep, keepTitle), t0 = Date.now(), doneN = 0, total = grps.length, stuckShown = false;
     P.ctl.onStatus = function () { };
     item.P = P;
@@ -889,6 +907,7 @@
     P.subs.push(fillGroup);
     updateTail();
     return P.done.then(function (v) {
+      if (v && v.partial) { clearInterval(tm); return restartTranslate(item); } // \uc81c\ud55c\uc774 \ud480\ub9ac\uae30 \uc9c1\uc804\uc5d0 \ub05d\ub09c \uacbd\uc6b0
       clearInterval(tm); item.v = v; item.done = true; setTitle(item, v.title);
       var k = 0; [].forEach.call(sec.querySelectorAll('p.tr'), function (p) { p._idx = k++; });
       meta.remove();
@@ -896,7 +915,7 @@
       row.appendChild(rt); sec.appendChild(row);
       if (ch.next && !ch.guessed) recordPattern(ch.url, ch.next);
       if (!ch.next) { var gn = guessUrl(ch.url, 'next'); if (gn) { ch.next = gn; ch.guessed = 1; } }
-      if (ch.next) item.nextP = prefetch(ch.next);
+      if (ch.next) item.nextP = prefetch(ch.next, preLimit());
       updateTail(); onScroll();
       return item;
     }, function (e) {
@@ -931,7 +950,7 @@
     var L = lastItem();
     if (!L || !L.done || appending || !L.ch.next) return null;
     appending = true; L.nextErr = null; updateTail();
-    if (!L.nextP) L.nextP = prefetch(L.ch.next);
+    if (!L.nextP) L.nextP = prefetch(L.ch.next, null);
     var g0 = viewGen, nch = await L.nextP;
     if (g0 !== viewGen) return null; // \uadf8\uc0ac\uc774 \ub2e4\ub978 \ud654(\uc11c\uc7ac\u00b7\ubaa9\ucc28)\ub85c \ubc14\ub01c
     appending = false;
@@ -1196,6 +1215,7 @@
     }
     if (name === 'theme') { prefs.theme = t.dataset.v; savePrefs(); applyPrefs(); return; }
     if (name === 'font') { prefs.font = t.dataset.v; savePrefs(); applyPrefs(); return; }
+    if (name === 'pre') { prefs.pre = +t.dataset.v; savePrefs(); applyPrefs(); toast(['\ub2e4\uc74c \ud654\ub97c \ubbf8\ub9ac \ubc88\uc5ed\ud558\uc9c0 \uc54a\uc544\uc694', '\ub2e4\uc74c \ud654 \uc55e\ubd80\ubd84\ub9cc \ubbf8\ub9ac \ubc88\uc5ed\ud574\uc694', '\ub2e4\uc74c \ud654 \uc804\uccb4\ub97c \ubbf8\ub9ac \ubc88\uc5ed\ud574\uc694'][prefs.pre]); return; }
     if (name === 'ind') { prefs.ind = +t.dataset.v; savePrefs(); applyPrefs(); return; }
     if (name === 'autoNext') { prefs.auto = prefs.auto ? 0 : 1; savePrefs(); applyPrefs(); toast(prefs.auto ? '\ub05d\uae4c\uc9c0 \uc77d\uc73c\uba74 \ub2e4\uc74c \ud654\uac00 \uc790\ub3d9\uc73c\ub85c \ubd99\uc5b4\uc694' : '\uc790\ub3d9 \uc774\uc5b4\ubd99\uc774\uae30\ub97c \uaed0\uc5b4\uc694'); return; }
     if (name === 'step') {
