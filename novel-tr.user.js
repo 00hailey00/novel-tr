@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.2.6
+// @version      1.2.7
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -347,6 +347,14 @@
 
   // ===================== \uc791\ud488 \uc815\ubcf4 (\uc11c\uc7ac\u00b7\ubaa9\ucc28\uc6a9) =====================
   function workId(u) { return String(u).replace(/[?#].*$/, '').replace(/[^\/]*$/, ''); }
+  // \uc791\ud488 \uad6c\ubd84: \u2460 \uc791\ud488 \uc774\ub984 \u2461 \uc791\ud488(\ubaa9\ucc28) \ud398\uc774\uc9c0 \uc8fc\uc18c \u2462 \uc8fc\uc18c\uc758 \ud3f4\ub354 \u2014 \uc0ac\uc774\ud2b8\ub9c8\ub2e4 \uc8fc\uc18c \uad6c\uc870\uac00 \ub2ec\ub77c\uc11c \uc774\ub984\uc744 \uba3c\uc800 \uc500
+  var SITENAME = /\u5c0f[\u8aaa\u8aac\u8bf4]|[\u66f8\u4e66]\u57ce|[\u66f8\u4e66]\u5c4b|[\u66f8\u4e66]\u7db2|\u7db2|\u7f51|\u95b1\u8b80|\u9605\u8bfb|\u4e2d\u6587|\u6587\u5b78|\u6587\u5b66/;
+  function workKey(url, book, toc) {
+    var host = String(url).replace(/^https?:\/\/(www\.)?/i, '').replace(/\/.*$/, '');
+    if (book && !SITENAME.test(book)) return host + '|b:' + book.replace(/\s+/g, '');
+    if (toc) return host + '|t:' + ckey(toc).replace(/^https?:\/\/[^\/]+/, '');
+    return host + '|d:' + workId(url).replace(/^https?:\/\/[^\/]+/, '');
+  }
   var TOCRX = /\u76ee[\u9304\u5f55\u6b21]|\u7ae0[\u7bc0\u8282]\u5217\u8868|\u8fd4\u56de[\u66f8\u4e66]?[\u9801\u9875\u76ee]|[\u66f8\u4e66][\u9801\u9875]|\u5168\u90e8\u7ae0[\u7bc0\u8282]|\ubaa9\ucc28|\ubaa9\ub85d/;
   function bookOf(doc, chTitle) {
     var m = doc.querySelector('meta[property="og:novel:book_name"],meta[name="og:novel:book_name"]');
@@ -372,7 +380,7 @@
     var cands = linkCands(doc, url);
     ch.book = bookOf(doc, ch.title);
     var stripped = ch.title.replace(/^\s*\u300a[^\u300b]+\u300b\s*/, '').trim(); if (stripped) ch.title = stripped; // \ud654 \uc81c\ubaa9 \uc55e\uc758 \u300a\uc791\ud488\uba85\u300b \uc81c\uac70
-    ch.toc = tocOf(doc, url, cands); ch.id = workId(url);
+    ch.toc = tocOf(doc, url, cands); ch.id = workKey(url, ch.book, ch.toc);
     return ch;
   }
 
@@ -854,13 +862,26 @@
   }
 
   // ===================== \uc11c\uc7ac =====================
-  function libAll() { return gget('lib', {}) || {}; }
+  function libAll() {
+    var L = gget('lib', {}) || {};
+    if (!L.__v2) { // \uc608\uc804 \uc11c\uc7ac: \uc8fc\uc18c \ud3f4\ub354\ub85c\ub9cc \uad6c\ubd84\ud574\uc11c \ub2e4\ub978 \uc791\ud488\uc774 \ud55c\ub370 \uc11e\uc600\uc74c \u2192 \uc791\ud488 \uc774\ub984 \uae30\uc900\uc73c\ub85c \ub2e4\uc2dc \uc815\ub9ac
+      var N = { __v2: 1 };
+      Object.keys(L).forEach(function (k) {
+        var w = L[k]; if (!w || !w.last) return;
+        if (!w.book || SITENAME.test(w.book)) return; // \uc0ac\uc774\ud2b8 \uc774\ub984\uc73c\ub85c \uc798\ubabb \ubb36\uc778 \ud56d\ubaa9\uc740 \ubc84\ub9bc (\ub2e4\uc2dc \uc77d\uc73c\uba74 \uc81c\ub300\ub85c \uc0dd\uae40)
+        var id = workKey(w.last.url, w.book, w.toc); w.id = id;
+        if (!N[id] || N[id].ts < w.ts) N[id] = w;
+      });
+      gset('lib', N); L = N;
+    }
+    return L;
+  }
   function coverColor(s) { var h = 0; s = String(s); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return 'hsl(' + (h % 360) + ' 42% 52%)'; }
   function bookName(w) { return w.bookKo || w.book || '\uc774\ub984 \uc5c6\ub294 \uc791\ud488'; }
   var libTitleBusy = {};
   function libTouch(it) {
     var ch = it.ch, L = libAll(), w = L[ch.id] || { id: ch.id, read: {} };
-    w.book = w.book || ch.book; w.toc = ch.toc || w.toc; w.ts = Date.now();
+    if (ch.book && !SITENAME.test(ch.book)) w.book = ch.book; else w.book = w.book || ''; w.toc = ch.toc || w.toc; w.ts = Date.now();
     w.last = { url: ch.url, title: it.title }; w.read = w.read || {}; w.read[ckey(ch.url)] = 1;
     L[ch.id] = w; gset('lib', L);
     topB.textContent = bookName(w); topS.textContent = it.title;
@@ -882,7 +903,7 @@
   function closePage() { dropLayer('page'); }
   function renderLib() {
     openPage('lib', '\ub0b4 \uc11c\uc7ac');
-    var ws = Object.keys(libAll()).map(function (k) { return libAll()[k]; }).sort(function (a, b) { return b.ts - a.ts; });
+    var LA = libAll(), ws = Object.keys(LA).filter(function (k) { return k !== '__v2' && LA[k] && LA[k].last; }).map(function (k) { return LA[k]; }).sort(function (a, b) { return b.ts - a.ts; });
     if (!ws.length) { pgB.innerHTML = '<div class="empty">\uc544\uc9c1 \uc77d\uc740 \uc791\ud488\uc774 \uc5c6\uc5b4\uc694.<br>\uc18c\uc124 \ud398\uc774\uc9c0\uc5d0\uc11c \ubc88\uc5ed \ubc84\ud2bc\uc744 \ub204\ub974\uba74 \uc5ec\uae30\uc5d0 \uc313\uc5ec\uc694.</div>'; return; }
     var w0 = ws[0], h = '';
     h += '<button class="cont" data-act="open" data-u="' + esc(w0.last.url) + '"><div class="cover" style="background:' + coverColor(w0.id) + '">' + esc(bookName(w0).charAt(0)) + '</div>' +
