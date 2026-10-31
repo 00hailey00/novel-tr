@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.3.0
+// @version      1.3.1
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -532,6 +532,9 @@
     '.pn .wide.pri{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600}',
     '.pn .hint{font-size:13px;color:var(--mut);margin:6px 0 10px;line-height:1.55}',
     '.pn .quote{font-family:var(--font);font-size:15px;line-height:1.7;padding:14px 16px;border-radius:14px;background:var(--bg);margin:10px 0 4px;max-height:30vh;overflow:auto}',
+    '.pn .urlrow{display:flex;gap:8px;margin:4px 0 8px}',
+    '.pn .url{flex:1;min-width:0;height:48px;padding:0 14px;border-radius:14px;border:1px solid var(--bd);background:var(--bg);color:var(--fg);font-size:14px;-webkit-user-select:text;user-select:text}',
+    '.pn .go{flex:none;height:48px;padding:0 18px;border-radius:14px;background:var(--ac);color:#fff;font-weight:600}',
     '.pn .li{display:block;width:100%;text-align:left;padding:12px 4px;min-height:54px;border-bottom:1px solid color-mix(in srgb,var(--bd) 55%,transparent)}',
     '.pn .li b{display:block;font-size:15px;font-weight:600;line-height:1.4}',
     '.pn .li small{display:block;font-size:12px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}',
@@ -616,7 +619,9 @@
       if (!layers.length && hasEntry) { hasEntry = false; skipPop++; history.back(); }
     }, 60);
   }
+  function syncUrl() { try { var it = chapters[curIndex()]; if (it) history.replaceState(history.state, '', it.ch.url); } catch (e) { } }
   window.addEventListener('popstate', function () {
+    setTimeout(syncUrl, 0); // \uae30\ub85d\uc744 \uc62e\uae30\uba74 \uc8fc\uc18c\uac00 \uc608\uc804 \ud654\ub85c \ub3cc\uc544\uac00\ubbc0\ub85c \uc9c0\uae08 \ud654\ub85c \ub9de\ucda4
     if (skipPop > 0) { skipPop--; return; }
     if (hasEntry) {
       hasEntry = false;
@@ -691,6 +696,7 @@
     var nm = { next: '\ub2e4\uc74c \ud654', prev: '\uc774\uc804 \ud654', toc: '\ubaa9\ucc28' }[kind];
     var h = '<div class="grab"></div><div class="hd"><h3>' + nm + ' \ub9c1\ud06c \uace0\ub974\uae30</h3><button class="x" data-act="close" aria-label="\ub2eb\uae30">' + I.x + '</button></div>' +
       '<p class="hint">' + nm + ' \ub9c1\ud06c\ub97c \uc790\ub3d9\uc73c\ub85c \ubabb \ucc3e\uc558\uc5b4\uc694. \uc6d0\ubcf8 \ud398\uc774\uc9c0\uc5d0 \uc788\ub358 \ub9c1\ud06c \uc911\uc5d0\uc11c ' + nm + '\ub85c \uac00\ub294 \uac78 \uace8\ub77c \uc8fc\uc138\uc694. \ud55c \ubc88 \uace0\ub974\uba74 \uc774 \uc0ac\uc774\ud2b8\uc5d0\uc11c\ub294 \uae30\uc5b5\ud574\uc694.</p>';
+    h += '<div class="urlrow"><input class="url" type="url" inputmode="url" placeholder="' + nm + ' \uc8fc\uc18c\ub97c \ubd99\uc5ec\ub123\uc5b4\ub3c4 \ub3fc\uc694"><button class="go" data-act="pickUrl" data-k="' + kind + '">\uc5f4\uae30</button></div>';
     var ls = item.ch.links || [];
     if (!ls.length) h += '<p class="hint">\uc6d0\ubcf8 \ud398\uc774\uc9c0\uc5d0\uc11c \ub9c1\ud06c\ub97c \ud558\ub098\ub3c4 \ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694.</p>';
     ls.forEach(function (c, i) {
@@ -750,8 +756,69 @@
     delete pending[item.ch.url];
     return show(item.ch, item, keep, title);
   }
+  // \ud398\uc774\uc9c0\ub97c '\uc9c4\uc9dc\ub85c' \uc5f4\uc5b4\uc11c(\uc228\uae34 \ucc3d) \uc790\ubc14\uc2a4\ud06c\ub9bd\ud2b8\uac00 \uadf8\ub9b0 \ub4a4\uc758 \ubaa8\uc2b5\uc744 \uac00\uc838\uc634
+  // \uc6d0\ubcf8 HTML\uc5d0 \ubcf8\ubb38\uc774\ub098 \ub2e4\uc74c \ud654 \ubc84\ud2bc\uc774 \uc5c6\ub294 \uc0ac\uc774\ud2b8(\uc2a4\ud06c\ub9bd\ud2b8\ub85c \uadf8\ub9ac\ub294 \uc0ac\uc774\ud2b8)\uc6a9
+  function getDocLive(url) {
+    return new Promise(function (res, rej) {
+      var f = document.createElement('iframe'), t0 = Date.now(), fin = false;
+      f.__nvKeep = 1;
+      f.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+      f.style.cssText = 'position:fixed;left:-10000px;top:0;width:420px;height:900px;border:0;visibility:hidden';
+      function snap() {
+        try { var d = f.contentDocument; return d && d.documentElement ? new DOMParser().parseFromString(d.documentElement.outerHTML, 'text/html') : null; } catch (e) { return null; }
+      }
+      function end(d) { if (fin) return; fin = true; clearInterval(iv); setTimeout(function () { f.remove(); }, 50); d ? res(d) : rej(new Error('\ud398\uc774\uc9c0\ub97c \uc5f4\uc9c0 \ubabb\ud588\uc5b4\uc694')); }
+      var iv = setInterval(function () {
+        var d; try { d = f.contentDocument; } catch (e) { d = null; }
+        var ready = d && d.readyState !== 'loading' && d.location && d.location.href !== 'about:blank';
+        if (ready) {
+          var ok = false;
+          try { var b = findBody(d); ok = b && hanLen(b.textContent) > 150 && (findLink(d, url, 'next', linkCands(d, url)) || Date.now() - t0 > 3000); } catch (e) { }
+          if (ok) return end(snap());
+        }
+        if (Date.now() - t0 > 15000) end(ready ? snap() : null);
+      }, 400);
+      f.src = url;
+      document.documentElement.appendChild(f);
+    });
+  }
+  // \uc8fc\uc18c \uaddc\uce59\uc73c\ub85c \uc774\uc6c3 \ud654 \ucd94\uce21: 1\ud654\u21922\ud654 \uc8fc\uc18c\uc758 \uc22b\uc790 \ucc28\uc774\ub97c \uae30\uc5b5\ud574 \ub450\uc5c8\ub2e4\uac00 \ub2e4\uc74c\uc5d0 \uc801\uc6a9
+  function urlTokens(u) { return String(u).split(/(\d+)/); }
+  function recordPattern(a, b) {
+    var A = urlTokens(a), B = urlTokens(b);
+    if (A.length !== B.length) return;
+    var diff = [];
+    for (var i = 1; i < A.length; i += 2) if (A[i] !== B[i]) diff.push(i);
+    for (i = 0; i < A.length; i += 2) if (A[i] !== B[i]) return; // \uc22b\uc790 \ub9d0\uace0 \ub2e4\ub978 \ubd80\ubd84\uc774 \ub2e4\ub974\uba74 \uaddc\uce59 \uc5c6\uc74c
+    if (diff.length !== 1) return;
+    var d = +B[diff[0]] - +A[diff[0]];
+    if (d === 0 || Math.abs(d) > 1000) return;
+    var P = gget('pat', {}) || {}; P[hostOf(a)] = { n: A.length, pos: A.length - diff[0], d: d }; gset('pat', P);
+  }
+  function guessUrl(u, kind) {
+    var p = (gget('pat', {}) || {})[hostOf(u)]; if (!p) return null;
+    var T = urlTokens(u); if (T.length !== p.n) return null;
+    var i = T.length - p.pos, v = +T[i] + (kind === 'next' ? p.d : -p.d);
+    if (!(i % 2) || v < 0) return null;
+    var str = String(v); if (T[i].length > str.length && T[i][0] === '0') str = (Array(T[i].length + 1).join('0') + str).slice(-T[i].length);
+    T[i] = str; return T.join('');
+  }
   async function prefetch(url) {
-    try { var d = await getDoc(url); var ch = chapterFull(d, url); startTranslate(ch); return ch; }
+    try {
+      var ch = null, err = null;
+      try { ch = chapterFull(await getDoc(url), url); } catch (e) { err = e; }
+      // \uc6d0\ubcf8\uc5d0 \ubcf8\ubb38\uc774 \uc5c6\uac70\ub098 \ub2e4\uc74c \ud654 \ub9c1\ud06c\uac00 \uc5c6\uc73c\uba74, \uc9c4\uc9dc\ub85c \uc5f4\uc5b4\uc11c \ub2e4\uc2dc \ud655\uc778
+      if (!ch || !ch.next || hanLen(ch.lines.join('')) < 200) {
+        try {
+          var ch2 = chapterFull(await getDocLive(url), url);
+          if (!ch || hanLen(ch2.lines.join('')) >= hanLen(ch.lines.join(''))) ch = ch2;
+          else { ch.next = ch.next || ch2.next; ch.prev = ch.prev || ch2.prev; ch.links = ch2.links.length > ch.links.length ? ch2.links : ch.links; ch.toc = ch.toc || ch2.toc; }
+        } catch (e2) { if (!ch) throw err || e2; }
+      }
+      if (!ch.next) { var g = guessUrl(url, 'next'); if (g) { ch.next = g; ch.guessed = 1; } }
+      if (!ch.prev) { var gp = guessUrl(url, 'prev'); if (gp) ch.prev = gp; }
+      startTranslate(ch); return ch;
+    }
     catch (e) { return { err: e }; }
   }
   function titleParts(t) {
@@ -806,6 +873,8 @@
       meta.remove();
       var row = el('div', 'endrow'), rt = el('button', 'mini'); rt.innerHTML = I.redo + '\uc774 \ud654 \ub2e4\uc2dc \ubc88\uc5ed'; rt.dataset.act = 'retrans'; rt._item = item;
       row.appendChild(rt); sec.appendChild(row);
+      if (ch.next && !ch.guessed) recordPattern(ch.url, ch.next);
+      if (!ch.next) { var gn = guessUrl(ch.url, 'next'); if (gn) { ch.next = gn; ch.guessed = 1; } }
       if (ch.next) item.nextP = prefetch(ch.next);
       updateTail(); onScroll();
       return item;
@@ -842,9 +911,13 @@
     if (!L || !L.done || appending || !L.ch.next) return null;
     appending = true; L.nextErr = null; updateTail();
     if (!L.nextP) L.nextP = prefetch(L.ch.next);
-    var nch = await L.nextP;
+    var g0 = viewGen, nch = await L.nextP;
+    if (g0 !== viewGen) return null; // \uadf8\uc0ac\uc774 \ub2e4\ub978 \ud654(\uc11c\uc7ac\u00b7\ubaa9\ucc28)\ub85c \ubc14\ub01c
     appending = false;
-    if (nch.err) { L.nextErr = nch.err.message; L.nextP = null; updateTail(); return null; }
+    if (nch.err) {
+      if (L.ch.guessed) { L.ch.next = null; L.ch.guessed = 0; L.nextP = null; updateTail(); return null; }
+      L.nextErr = nch.err.message; L.nextP = null; updateTail(); return null;
+    }
     if (chapters.some(function (c) { return c.ch.url === nch.url; })) { L.ch.next = null; updateTail(); toast('\ub2e4\uc74c \ud654 \ub9c1\ud06c\uac00 \uc774\ubbf8 \uc77d\uc740 \ud654\ub97c \uac00\ub9ac\ucf1c\uc694'); return null; }
     wrap.appendChild(el('div', 'sep', '\u00b7 \u00b7 \u00b7'));
     show(nch);
@@ -858,10 +931,13 @@
     return idx;
   }
   // \ud654 \ud558\ub098\ub9cc \uc0c8\ub85c \uc5f4\uae30 (\uc11c\uc7ac \u00b7 \ubaa9\ucc28 \u00b7 \uc774\uc804 \ud654\uc5d0\uc11c)
+  var viewGen = 0;
   async function openChapter(url, from) {
+    var g0 = ++viewGen; appending = false;
     closePage(); closeSheet(); setUI(false);
     wrap.innerHTML = ''; chapters = []; tail.innerHTML = '<div class="spin">\ubd88\ub7ec\uc624\ub294 \uc911</div>'; sc.scrollTop = 0; curShown = -1;
     var ch = await prefetch(url);
+    if (g0 !== viewGen) return; // \ub354 \ub098\uc911\uc5d0 \uc5f0 \ud654\uac00 \uc788\uc74c
     if (ch.err) { tail.innerHTML = ''; tail.appendChild(el('div', 'er', '\ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc5b4\uc694: ' + ch.err.message)); var b = el('button', 'btn pri', '\ub2e4\uc2dc \uc2dc\ub3c4'); b.dataset.act = 'open'; b.dataset.u = url; tail.appendChild(b); return; }
     show(ch).then(function (it) { if (it && it.done && from === 'lib') restorePos(it); });
   }
@@ -1137,6 +1213,16 @@
       else { toast('\uae30\uc5b5\ud588\uc5b4\uc694. \uc774\uc804 \ud654\ub97c \ubd88\ub7ec\uc62c\uac8c\uc694'); act('prev', t); }
       return;
     }
+    if (name === 'pickUrl') {
+      var inp = pn.querySelector('.url'), uu = (inp && inp.value || '').trim(), kk = t.dataset.k;
+      try { uu = new URL(uu, pickItem.ch.url).href; } catch (e) { uu = ''; }
+      if (!/^https?:/.test(uu)) { toast('\uc8fc\uc18c\ub97c \ud655\uc778\ud574 \uc8fc\uc138\uc694'); return; }
+      pickItem.ch[kk] = uu; pickItem.ch.guessed = 0; closeSheet();
+      if (kk === 'next') { recordPattern(pickItem.ch.url, uu); pickItem.nextP = null; pickItem.nextErr = null; var n2 = await appendNext(); if (n2) scrollToItem(n2); }
+      else if (kk === 'toc') { var L4 = libAll(); if (L4[pickItem.ch.id]) { L4[pickItem.ch.id].toc = uu; gset('lib', L4); } renderToc(); }
+      else act('prev', t);
+      return;
+    }
     if (name === 'nextRetry') { lastItem().nextP = null; appendNext(); return; }
     if (name === 'next') {
       setUI(false);
@@ -1219,7 +1305,7 @@
 
   // \uad11\uace0 \uc2a4\ud06c\ub9bd\ud2b8\uac00 \uc0c8\ub85c \ub07c\uc6cc \ub123\ub294 \uc694\uc18c \uc81c\uac70
   function sweep(n) {
-    if (n.nodeType === 1 && n !== host && !/^(HEAD|BODY|META|TITLE|LINK)$/.test(n.tagName)) n.remove();
+    if (n.nodeType === 1 && n !== host && !n.__nvKeep && !/^(HEAD|BODY|META|TITLE|LINK)$/.test(n.tagName)) n.remove();
   }
   [].slice.call(document.body.children).forEach(sweep);
   [].slice.call(document.documentElement.children).forEach(sweep);
