@@ -150,12 +150,12 @@ button.sec{background:var(--card);color:var(--fg);border:1px solid var(--bd)}
     return 'https://' + host + '/v1/projects/' + encodeURIComponent(C.sa.project_id) + '/locations/' + encodeURIComponent(loc) +
       '/publishers/google/models/' + encodeURIComponent(C.m) + ':generateContent';
   }
-  async function translate(text) {
+  async function translate(text, temp) {
     if (!configured()) throw new Error('설정이 안 되어 있어요. ⚙ 설정을 눌러주세요.');
     var req = {
       systemInstruction: { parts: [{ text: sys() }] },
       contents: [{ role: 'user', parts: [{ text: text }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 30000 },
+      generationConfig: { temperature: typeof temp === 'number' ? temp : 0.3, maxOutputTokens: 30000 },
       safetySettings: ['HARM_CATEGORY_HARASSMENT', 'HARM_CATEGORY_HATE_SPEECH',
         'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'HARM_CATEGORY_DANGEROUS_CONTENT']
         .map(function (c) { return { category: c, threshold: 'BLOCK_ONLY_HIGH' }; })
@@ -201,7 +201,7 @@ button.sec{background:var(--card);color:var(--fg);border:1px solid var(--bd)}
     if (e.source !== P || !e.data || !e.data.nvtr) return;
     var d = e.data;
     if (d.type === 'translate') {
-      try { send({ type: 'result', id: d.id, out: await translate(String(d.text || '')) }); }
+      try { send({ type: 'result', id: d.id, out: await translate(String(d.text || ''), d.temp) }); }
       catch (x) { send({ type: 'result', id: d.id, error: x.message }); }
     } else if (d.type === 'setPrefs') {
       var cur = getPrefs();
