@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.2.7
+// @version      1.2.8
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -868,7 +868,7 @@
       var N = { __v2: 1 };
       Object.keys(L).forEach(function (k) {
         var w = L[k]; if (!w || !w.last) return;
-        if (!w.book || SITENAME.test(w.book)) return; // \uc0ac\uc774\ud2b8 \uc774\ub984\uc73c\ub85c \uc798\ubabb \ubb36\uc778 \ud56d\ubaa9\uc740 \ubc84\ub9bc (\ub2e4\uc2dc \uc77d\uc73c\uba74 \uc81c\ub300\ub85c \uc0dd\uae40)
+        if (!w.book || SITENAME.test(w.book)) { gset('libRestore', 1); return; } // \uc0ac\uc774\ud2b8 \uc774\ub984\uc73c\ub85c \uc798\ubabb \ubb36\uc778 \ud56d\ubaa9\uc740 \ubc84\ub9ac\uace0, \ubc88\uc5ed \uae30\ub85d\uc5d0\uc11c \ub2e4\uc2dc \ub9cc\ub4e6
         var id = workKey(w.last.url, w.book, w.toc); w.id = id;
         if (!N[id] || N[id].ts < w.ts) N[id] = w;
       });
@@ -898,13 +898,46 @@
     if (d < 60) return '\ubc29\uae08'; if (d < 3600) return Math.floor(d / 60) + '\ubd84 \uc804'; if (d < 86400) return Math.floor(d / 3600) + '\uc2dc\uac04 \uc804';
     if (d < 86400 * 30) return Math.floor(d / 86400) + '\uc77c \uc804'; return new Date(ts).toLocaleDateString();
   }
+  // \ubc88\uc5ed \uae30\ub85d(\uc800\uc7a5\ub41c \ud654 \ubaa9\ub85d)\uc5d0\uc11c \ud654\ub9c8\ub2e4 \uc6d0\ubcf8 \ud398\uc774\uc9c0\ub97c \ub2e4\uc2dc \uc77d\uc5b4 \uc791\ud488\ubcc4\ub85c \uc11c\uc7ac\ub97c \ub2e4\uc2dc \ub9cc\ub4e6
+  var restoring = false;
+  async function restoreLib(manual) {
+    if (restoring) return; restoring = true;
+    var I = cIndex(), urls = Object.keys(I).sort(function (a, b) { return I[b].ts - I[a].ts; }).slice(0, 120), done = 0, added = 0;
+    if (manual) toast('\ubc88\uc5ed \uae30\ub85d\uc5d0\uc11c \uc11c\uc7ac\ub97c \ub2e4\uc2dc \ub9cc\ub4dc\ub294 \uc911');
+    var q = urls.slice();
+    async function worker() {
+      while (q.length) {
+        var u = q.shift();
+        try {
+          var ch = chapterFull(await getDoc(u), u), L = libAll(), w = L[ch.id];
+          if (!w) { w = L[ch.id] = { id: ch.id, read: {}, ts: 0 }; added++; }
+          if (ch.book && !SITENAME.test(ch.book)) w.book = w.book || ch.book;
+          w.toc = w.toc || ch.toc; w.read = w.read || {}; w.read[ckey(u)] = 1;
+          if (!w.last || I[u].ts > w.ts) { w.last = { url: u, title: I[u].t || ch.title }; w.ts = I[u].ts; }
+          gset('lib', L);
+        } catch (e) { }
+        done++;
+        if (pageMode === 'lib' && app.classList.contains('page') && done % 10 === 0) renderLib();
+      }
+    }
+    await Promise.all([worker(), worker(), worker()]);
+    // \uc791\ud488 \uc774\ub984\uc744 \ud55c\uad6d\uc5b4\ub85c (\uc544\uc9c1 \uc5c6\ub294 \uac83\ub9cc)
+    var LL = libAll();
+    for (var k in LL) {
+      var w = LL[k]; if (k === '__v2' || !w || w.bookKo || !w.book || !cfg()) continue;
+      try { var o = await callApi('[\uc81c\ubaa9] ' + w.book); var L2 = libAll(); if (L2[k]) { L2[k].bookKo = (splitTitle(o.split(/\n+/), '').title || o.split(/\n+/)[0]).trim(); gset('lib', L2); } } catch (e) { }
+    }
+    gdel('libRestore'); restoring = false;
+    if (pageMode === 'lib' && app.classList.contains('page')) renderLib();
+    if (manual || added) toast('\uc11c\uc7ac\ub97c \ub2e4\uc2dc \ub9cc\ub4e4\uc5c8\uc5b4\uc694 \u00b7 \uc791\ud488 ' + (Object.keys(libAll()).length - 1) + '\uac1c');
+  }
   var pageMode = '';
   function openPage(mode, title) { pageMode = mode; pgT.textContent = title; pg.classList.remove('edit'); edBtn.style.display = mode === 'lib' ? '' : 'none'; edBtn.textContent = '\ud3b8\uc9d1'; dropLayer('ui'); dropLayer('sheet'); app.classList.add('page'); pushLayer('page'); }
   function closePage() { dropLayer('page'); }
   function renderLib() {
     openPage('lib', '\ub0b4 \uc11c\uc7ac');
     var LA = libAll(), ws = Object.keys(LA).filter(function (k) { return k !== '__v2' && LA[k] && LA[k].last; }).map(function (k) { return LA[k]; }).sort(function (a, b) { return b.ts - a.ts; });
-    if (!ws.length) { pgB.innerHTML = '<div class="empty">\uc544\uc9c1 \uc77d\uc740 \uc791\ud488\uc774 \uc5c6\uc5b4\uc694.<br>\uc18c\uc124 \ud398\uc774\uc9c0\uc5d0\uc11c \ubc88\uc5ed \ubc84\ud2bc\uc744 \ub204\ub974\uba74 \uc5ec\uae30\uc5d0 \uc313\uc5ec\uc694.</div>'; return; }
+    if (!ws.length) { pgB.innerHTML = '<div class="empty">\uc544\uc9c1 \uc77d\uc740 \uc791\ud488\uc774 \uc5c6\uc5b4\uc694.<br>\uc18c\uc124 \ud398\uc774\uc9c0\uc5d0\uc11c \ubc88\uc5ed \ubc84\ud2bc\uc744 \ub204\ub974\uba74 \uc5ec\uae30\uc5d0 \uc313\uc5ec\uc694.</div><button class="btn" style="display:flex;margin:0 auto" data-act="libRestore">\ubc88\uc5ed \uae30\ub85d\uc5d0\uc11c \uc11c\uc7ac \ub2e4\uc2dc \ub9cc\ub4e4\uae30</button>'; return; }
     var w0 = ws[0], h = '';
     h += '<button class="cont" data-act="open" data-u="' + esc(w0.last.url) + '"><div class="cover" style="background:' + coverColor(w0.id) + '">' + esc(bookName(w0).charAt(0)) + '</div>' +
       '<div class="ci"><small>\uc774\uc5b4 \uc77d\uae30</small><b>' + esc(bookName(w0)) + '</b><span>' + esc(w0.last.title) + ' \u00b7 ' + relTime(w0.ts) + '</span></div>' + I.next + '</button>';
@@ -917,6 +950,7 @@
       });
       h += '</div>';
     }
+    h += '<button class="btn" style="display:flex;margin:34px auto 0;font-size:13px;min-height:44px;color:var(--mut)" data-act="libRestore">\ubc88\uc5ed \uae30\ub85d\uc5d0\uc11c \uc11c\uc7ac \ub2e4\uc2dc \ub9cc\ub4e4\uae30</button>';
     pgB.innerHTML = h; pgB.scrollTop = 0;
   }
 
@@ -1016,6 +1050,7 @@
     if (name === 'lib') { renderLib(); return; }
     if (name === 'toc') { renderToc(); return; }
     if (name === 'pgClose') { closePage(); return; }
+    if (name === 'libRestore') { restoreLib(true); return; }
     if (name === 'libEdit') { var on = !pg.classList.contains('edit'); pg.classList.toggle('edit', on); edBtn.textContent = on ? '\uc644\ub8cc' : '\ud3b8\uc9d1'; return; }
     if (name === 'libDel') { var L = libAll(); delete L[t.dataset.id]; gset('lib', L); renderLib(); pg.classList.add('edit'); edBtn.textContent = '\uc644\ub8cc'; return; }
     if (name === 'open') { if (pg.classList.contains('edit')) return; openChapter(t.dataset.u, pageMode === 'lib' ? 'lib' : 'toc'); return; }
@@ -1164,6 +1199,7 @@
   applyPrefs();
   try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if (prefs.theme === 'auto') applyPrefs(); }); } catch (e) { }
   show(first).then(function (it) { if (it && it.done) setTimeout(function () { restorePos(it); }, 50); else posReady = true; });
+  libAll(); if (gget('libRestore', 0)) setTimeout(function () { restoreLib(false); }, 3000);
   if (!gget('hintUI', 0)) { gset('hintUI', 1); setTimeout(function () { toast('\ud654\uba74\uc744 \ud0ed\ud558\uba74 \uba54\ub274\uac00, \ubb38\ub2e8\uc744 \uae38\uac8c \ub204\ub974\uba74 \ub2e4\uc2dc \ubc88\uc5ed\uc774 \ub098\uc640\uc694'); }, 1200); }
 
   // ===== \uc6d0\ubcf8 \ud398\uc774\uc9c0: \ub5a0 \uc788\ub294 '\ubc88\uc5ed' \ubc84\ud2bc =====
