@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.2.9
+// @version      1.3.0
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -975,7 +975,41 @@
     }
     take(function (u) { return u.indexOf(dir) === 0 && /\.(s?html?|php)$|\/\d+\/?$/.test(u); });
     if (out.length < 5) take(function (u, t) { return CHRX.test(t); });
-    return out;
+    return sortToc(out);
+  }
+  // \ubaa9\ucc28 \uc815\ub82c: \uc0ac\uc774\ud2b8\uac00 '\ucd5c\uc2e0 \ud654\ubd80\ud130' \ubcf4\uc5ec\uc8fc\uac70\ub098 '\ucc98\uc74c\ubd80\ud130 \uc77d\uae30' \ub9c1\ud06c\ub97c \uc11e\uc5b4 \ub46c\ub3c4 1\ud654\ubd80\ud130 \ucc28\ub840\ub300\ub85c
+  var CN = { '\u96f6': 0, '\u3007': 0, '\u4e00': 1, '\u4e8c': 2, '\u4e24': 2, '\u5169': 2, '\u4e09': 3, '\u56db': 4, '\u4e94': 5, '\u516d': 6, '\u4e03': 7, '\u516b': 8, '\u4e5d': 9 };
+  function cnNum(t) {
+    var n = 0, cur = 0;
+    for (var i = 0; i < t.length; i++) {
+      var c = t[i];
+      if (c in CN) cur = CN[c];
+      else if (c === '\u5341') { n += (cur || 1) * 10; cur = 0; }
+      else if (c === '\u767e') { n += (cur || 1) * 100; cur = 0; }
+      else if (c === '\u5343') { n += (cur || 1) * 1000; cur = 0; }
+      else if (c === '\u842c' || c === '\u4e07') { n = (n + cur) * 10000; cur = 0; }
+    }
+    return n + cur;
+  }
+  function chNum(t) {
+    var m = t.match(/\u7b2c\s*(\d+)\s*[\u7ae0\u56de\u8282\u7bc0\u8bdd\u8a71\u5377\u96c6\u7bc7]/) || t.match(/^\s*(\d+)(?!\d)/) || t.match(/(?:^|\D)(\d{1,5})(?:\D|$)/);
+    if (m) return +m[1];
+    m = t.match(/\u7b2c\s*([\u96f6\u3007\u4e00\u4e8c\u4e24\u5169\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\u767e\u5343\u842c\u4e07]+)\s*[\u7ae0\u56de\u8282\u7bc0\u8bdd\u8a71\u5377\u96c6\u7bc7]/);
+    if (m) return cnNum(m[1]);
+    if (/[\u958b\u5f00]\u59cb[\u95b1\u9605][\u8b80\u8bfb]|\u5f9e\u982d|\u4ece\u5934|\u7b2c\u4e00[\u7ae0\u56de]|\u5e8f\u7ae0|\u6954\u5b50/.test(t)) return 0.5; // '\ucc98\uc74c\ubd80\ud130 \uc77d\uae30' \uac19\uc740 \ub9c1\ud06c = 1\ud654 \uc55e
+    return null;
+  }
+  function sortToc(list) {
+    var nums = list.map(function (c) { return chNum(c.t); }), have = nums.filter(function (x) { return x != null; }).length;
+    if (have < list.length * 0.6) { // \ubc88\ud638\uac00 \ubcc4\ub85c \uc5c6\uc73c\uba74 \uc21c\uc11c\ub9cc \ubcf4\uace0, \uac70\uafb8\ub85c(\ucd5c\uc2e0 \ud654\ubd80\ud130)\uba74 \ub4a4\uc9d1\uc74c
+      return list;
+    }
+    return list.map(function (c, i) { return { c: c, n: nums[i], i: i }; })
+      .sort(function (a, b) {
+        if (a.n == null && b.n == null) return a.i - b.i;
+        if (a.n == null) return 1; if (b.n == null) return -1;
+        return a.n - b.n || a.i - b.i;
+      }).map(function (x) { return x.c; });
   }
   async function renderToc() {
     var it = chapters[curIndex()] || lastItem(); if (!it) return;
@@ -999,7 +1033,7 @@
       var tr = cacheHas(c.u), isRead = read[ckey(c.u)] || read[c.u], isCur = ckey(c.u) === ckey(cur);
       if (isRead) readN++; if (tr) trN++;
       return '<button class="row' + (isRead ? ' read' : '') + (isCur ? ' cur' : '') + '" data-act="open" data-u="' + esc(c.u) + '"><span class="rt">' +
-        esc(tr ? tr.t : c.t) + (tr ? '<small>' + esc(c.t) + '</small>' : '') + '</span>' +
+        esc(tr ? tr.t : c.t) + (tr && tr.t !== c.t ? '<small>' + esc(c.t) + '</small>' : '') + '</span>' +
         (isCur ? '<span class="bdg">\uc77d\ub294 \uc911</span>' : tr ? '<span class="bdg">\ubc88\uc5ed\ub428</span>' : '') + '</button>';
     });
     pgB.innerHTML = '<div class="tbar"><button data-act="tocCur">\uc77d\ub294 \uacf3\uc73c\ub85c</button><button data-act="tocTop">\ucc98\uc74c\uc73c\ub85c</button><button data-act="tocEnd">\ucd5c\uc2e0 \ud654\ub85c</button></div>' +
