@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.2.2
+// @version      1.2.3
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -244,15 +244,32 @@
     throw last;
   }
 
-  var CK = 'cache';
-  function cacheAll() { return gget(CK, {}) || {}; }
-  function cacheGet(u) { return cacheAll()[u]; }
-  function cacheDel(u) { var c = cacheAll(); delete c[u]; gset(CK, c); }
-  function cachePut(u, v) {
-    var c = cacheAll(); delete c[u]; c[u] = v;
-    var k = Object.keys(c); while (k.length > 150) delete c[k.shift()];
-    gset(CK, c);
+  // ---- \ubc88\uc5ed \uc800\uc7a5\uc18c: \ud654\ub9c8\ub2e4 \ub530\ub85c \uc800\uc7a5 (\uc791\ud488\uc774 \ub9ce\uc544\ub3c4 \ube60\ub974\uac8c), \uc8fc\uc18c\ub294 www\u00b7#\u2026 \ucc28\uc774\ub97c \ubb34\uc2dc ----
+  var CMAX = 3000;
+  function ckey(u) { return String(u).replace(/#.*$/, '').replace(/^(https?:\/\/)www\./i, '$1'); }
+  var cidx = null;
+  function cIndex() {
+    if (cidx) return cidx;
+    cidx = gget('cidx', null);
+    if (!cidx) { // \uc608\uc804 \ud615\uc2dd(\ud55c \ub369\uc5b4\ub9ac)\uc5d0\uc11c \uc62e\uae30\uae30
+      cidx = {}; var old = gget('cache', null);
+      if (old) { Object.keys(old).forEach(function (u) { var k = ckey(u); gset('c:' + k, old[u]); cidx[k] = { t: old[u].title, ts: Date.now() }; }); gdel('cache'); }
+      gset('cidx', cidx);
+    }
+    return cidx;
   }
+  function cacheGet(u) { var k = ckey(u); return cIndex()[k] ? gget('c:' + k, null) : null; }
+  function cacheDel(u) { var k = ckey(u), I = cIndex(); delete I[k]; gdel('c:' + k); gset('cidx', I); }
+  function cachePut(u, v) {
+    var k = ckey(u), I = cIndex();
+    gset('c:' + k, v); I[k] = { t: v.title, ts: Date.now() };
+    var ks = Object.keys(I);
+    if (ks.length > CMAX) {
+      ks.sort(function (a, b) { return I[a].ts - I[b].ts; }).slice(0, ks.length - CMAX).forEach(function (x) { delete I[x]; gdel('c:' + x); });
+    }
+    gset('cidx', I);
+  }
+  function cacheHas(u) { return cIndex()[ckey(u)]; }
   // ===================== \ubc88\uc5ed =====================
   // \ub9c9\ud788\uac70\ub098(\uc548\uc804 \ud544\ud130) \uc798\ub9ac\uba74(\uae38\uc774 \ucd08\uacfc) \ubc18\uc73c\ub85c \ub098\ub220 \ub2e4\uc2dc \uc2dc\ub3c4, \ub05d\uae4c\uc9c0 \ub9c9\ud788\ub294 \ud55c \uc904\uc740 \uc6d0\ubb38\uc73c\ub85c \ud45c\uc2dc
   var BLOCKED = /SAFETY|PROHIBITED|BLOCKLIST|SPII|RECITATION|OTHER|MAX_TOKENS|\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c/i;
@@ -767,7 +784,7 @@
   function libTouch(it) {
     var ch = it.ch, L = libAll(), w = L[ch.id] || { id: ch.id, read: {} };
     w.book = w.book || ch.book; w.toc = ch.toc || w.toc; w.ts = Date.now();
-    w.last = { url: ch.url, title: it.title }; w.read = w.read || {}; w.read[ch.url] = 1;
+    w.last = { url: ch.url, title: it.title }; w.read = w.read || {}; w.read[ckey(ch.url)] = 1;
     L[ch.id] = w; gset('lib', L);
     topB.textContent = bookName(w); topS.textContent = it.title;
     if (!w.bookKo && w.book && !libTitleBusy[ch.id] && cfg()) { // \uc791\ud488 \uc81c\ubaa9\uc744 \ud55c \ubc88\ub9cc \ubc88\uc5ed\ud574 \ub460
@@ -840,12 +857,12 @@
     }
     if (pageMode !== 'toc') return;
     if (!list.length) { pgB.innerHTML = '<div class="empty">\ubaa9\ucc28\uc5d0\uc11c \ud654 \ubaa9\ub85d\uc744 \ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694.</div><button class="btn pri" style="display:flex;margin:0 auto" data-act="pick" data-k="toc">\ub2e4\ub978 \ubaa9\ucc28 \ub9c1\ud06c \uace0\ub974\uae30</button>'; return; }
-    var cache = cacheAll(), read = (libAll()[it.ch.id] || {}).read || {}, cur = it.ch.url.replace(/#.*$/, ''), readN = 0, trN = 0;
+    var read = (libAll()[it.ch.id] || {}).read || {}, cur = it.ch.url.replace(/#.*$/, ''), readN = 0, trN = 0;
     var rows = list.map(function (c, i) {
-      var tr = cache[c.u], isRead = read[c.u], isCur = c.u === cur;
+      var tr = cacheHas(c.u), isRead = read[ckey(c.u)] || read[c.u], isCur = ckey(c.u) === ckey(cur);
       if (isRead) readN++; if (tr) trN++;
       return '<button class="row' + (isRead ? ' read' : '') + (isCur ? ' cur' : '') + '" data-act="open" data-u="' + esc(c.u) + '"><span class="rt">' +
-        esc(tr ? tr.title : c.t) + (tr ? '<small>' + esc(c.t) + '</small>' : '') + '</span>' +
+        esc(tr ? tr.t : c.t) + (tr ? '<small>' + esc(c.t) + '</small>' : '') + '</span>' +
         (isCur ? '<span class="bdg">\uc77d\ub294 \uc911</span>' : tr ? '<span class="bdg">\ubc88\uc5ed\ub428</span>' : '') + '</button>';
     });
     pgB.innerHTML = '<div class="tbar"><button data-act="tocCur">\uc77d\ub294 \uacf3\uc73c\ub85c</button><button data-act="tocTop">\ucc98\uc74c\uc73c\ub85c</button><button data-act="tocEnd">\ucd5c\uc2e0 \ud654\ub85c</button></div>' +
