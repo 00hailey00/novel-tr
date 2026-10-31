@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.3.4
+// @version      1.3.5
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -837,7 +837,14 @@
     var str = String(v); if (T[i].length > str.length && T[i][0] === '0') str = (Array(T[i].length + 1).join('0') + str).slice(-T[i].length);
     T[i] = str; return T.join('');
   }
-  async function prefetch(url, limit) {
+  // \uac19\uc740 \ud654\uac00 \ub2e4\uc2dc \ub098\uc624\ub294\uc9c0 \ud655\uc778\uc6a9 \uc9c0\ubb38 (\uc8fc\uc18c\uac00 \ub2ec\ub77c\ub3c4 \ub0b4\uc6a9\uc774 \uac19\uc73c\uba74 \uac19\uc740 \ud654)
+  function fpOf(lines) { return lines.length + ':' + lines.slice(0, 3).join('').slice(0, 120) + '|' + lines.slice(-2).join('').slice(-60); }
+  function looksLikeList(lines) { // \ubaa9\ucc28\u00b7\uc791\ud488 \uc18c\uac1c \ud398\uc774\uc9c0\ub97c \ud654\ub85c \ucc29\uac01\ud558\uc9c0 \uc54a\uac8c
+    if (lines.length < 8) return false;
+    var n = lines.filter(function (l) { return l.length < 30 && /^\s*(\u7b2c\s*[\d\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\u767e\u5343\u96f6\u3007\u4e24]+\s*[\u7ae0\u56de\u8282\u7bc0\u8bdd\u8a71]|\d{1,4}([\.\u3001\s]|$))/.test(l); }).length;
+    return n / lines.length > 0.5;
+  }
+  async function prefetch(url, limit, asNext) {
     try {
       var ch = null, err = null;
       try { ch = chapterFull(await getDoc(url), url); } catch (e) { err = e; }
@@ -851,6 +858,11 @@
       }
       if (!ch.next) { var g = guessUrl(url, 'next'); if (g) { ch.next = g; ch.guessed = 1; } }
       if (!ch.prev) { var gp = guessUrl(url, 'prev'); if (gp) ch.prev = gp; }
+      ch.fp = fpOf(ch.lines);
+      if (asNext) { // \ub2e4\uc74c \ud654\ub85c \ubd88\ub7ec\uc628 \uacbd\uc6b0: \uc774\ubbf8 \ubcf8 \ud654\uc774\uac70\ub098 \ubaa9\ucc28 \ud398\uc774\uc9c0\uba74 '\ub9c8\uc9c0\ub9c9 \ud654'
+        var dup = chapters.some(function (c) { return c.fp === ch.fp || ckey(c.ch.url) === ckey(ch.url) || (c.ch.toc && ckey(c.ch.toc) === ckey(ch.url)); });
+        if (dup || looksLikeList(ch.lines)) return { err: new Error('\ub9c8\uc9c0\ub9c9 \ud654\uc778 \uac83 \uac19\uc544\uc694'), last: true };
+      }
       if (limit !== 0) startTranslate(ch, null, null, limit); return ch;
     }
     catch (e) { return { err: e }; }
@@ -866,7 +878,7 @@
   function show(ch, old, keep, keepTitle) {
     var sec = el('section'), chl = el('div', 'chl'), cht = el('h2', 'cht'), meta = el('div', 'meta');
     sec.appendChild(chl); sec.appendChild(cht); sec.appendChild(meta);
-    var item = { ch: ch, sec: sec, chl: chl, cht: cht, meta: meta, title: ch.title, done: false, failed: false, nextP: null, chunks: makeChunks(ch), v: null };
+    var item = { ch: ch, sec: sec, chl: chl, cht: cht, meta: meta, title: ch.title, done: false, failed: false, nextP: null, chunks: makeChunks(ch), v: null, fp: ch.fp || fpOf(ch.lines) };
     setTitle(item, ch.title);
     // \uc6d0\ubb38\uc744 \ub369\uc5b4\ub9ac\ubcc4\ub85c \ubbf8\ub9ac \uae54\uc544\ub460 (\uccab \ub369\uc5b4\ub9ac\uc758 \uccab \uc904\uc740 \uc81c\ubaa9\uc774\ub77c \uc81c\uc678)
     var grps = item.chunks.map(function (lines, ci) {
@@ -915,7 +927,7 @@
       row.appendChild(rt); sec.appendChild(row);
       if (ch.next && !ch.guessed) recordPattern(ch.url, ch.next);
       if (!ch.next) { var gn = guessUrl(ch.url, 'next'); if (gn) { ch.next = gn; ch.guessed = 1; } }
-      if (ch.next) item.nextP = prefetch(ch.next, preLimit());
+      if (ch.next) item.nextP = prefetch(ch.next, preLimit(), true);
       updateTail(); onScroll();
       return item;
     }, function (e) {
@@ -940,6 +952,10 @@
       var pb = el('button', 'btn pri', '\ub2e4\uc74c \ud654 \ub9c1\ud06c \uace0\ub974\uae30'); pb.dataset.act = 'pick'; pb.dataset.k = 'next'; tail.appendChild(pb); return;
     }
     if (appending) { tail.appendChild(el('div', 'spin', '\ub2e4\uc74c \ud654 \ubd88\ub7ec\uc624\ub294 \uc911')); return; }
+    if (L.isLast) {
+      tail.appendChild(el('div', null, '\ub9c8\uc9c0\ub9c9 \ud654\uae4c\uc9c0 \uc77d\uc5c8\uc5b4\uc694.'));
+      var rc = el('button', 'btn', '\uc0c8 \ud654\uac00 \uc788\ub294\uc9c0 \ub2e4\uc2dc \ud655\uc778'); rc.dataset.act = 'nextRetry'; tail.appendChild(rc); return;
+    }
     if (L.nextErr) {
       tail.appendChild(el('div', 'er', '\ub2e4\uc74c \ud654\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc5b4\uc694: ' + L.nextErr));
       var b = el('button', 'btn pri', '\ub2e4\uc2dc \uc2dc\ub3c4'); b.dataset.act = 'nextRetry'; tail.appendChild(b); return;
@@ -950,11 +966,12 @@
     var L = lastItem();
     if (!L || !L.done || appending || !L.ch.next) return null;
     appending = true; L.nextErr = null; updateTail();
-    if (!L.nextP) L.nextP = prefetch(L.ch.next, null);
+    if (!L.nextP) L.nextP = prefetch(L.ch.next, null, true);
     var g0 = viewGen, nch = await L.nextP;
     if (g0 !== viewGen) return null; // \uadf8\uc0ac\uc774 \ub2e4\ub978 \ud654(\uc11c\uc7ac\u00b7\ubaa9\ucc28)\ub85c \ubc14\ub01c
     appending = false;
     if (nch.err) {
+      if (nch.last) { L.isLast = true; L.nextP = null; updateTail(); toast('\ub9c8\uc9c0\ub9c9 \ud654\uae4c\uc9c0 \uc77d\uc5c8\uc5b4\uc694'); return null; }
       if (L.ch.guessed) { L.ch.next = null; L.ch.guessed = 0; L.nextP = null; updateTail(); return null; }
       L.nextErr = nch.err.message; L.nextP = null; updateTail(); return null;
     }
@@ -1308,13 +1325,21 @@
       else act('prev', t);
       return;
     }
-    if (name === 'nextRetry') { lastItem().nextP = null; appendNext(); return; }
+    if (name === 'nextRetry') {
+      var LR = lastItem(); LR.nextP = null;
+      if (LR.isLast) { // \uc9c0\uae08 \ud654 \ud398\uc774\uc9c0\ub97c \ub2e4\uc2dc \uc77d\uc5b4 \uc0c8\ub85c \uc0dd\uae34 \ub2e4\uc74c \ud654 \ub9c1\ud06c\uac00 \uc788\ub294\uc9c0 \ud655\uc778
+        LR.isLast = false; toast('\uc0c8 \ud654\uac00 \uc788\ub294\uc9c0 \ud655\uc778\ud558\ub294 \uc911');
+        try { var c2 = chapterFull(await getDoc(LR.ch.url), LR.ch.url); if (c2.next) LR.ch.next = c2.next; } catch (e) { }
+      }
+      appendNext(); return;
+    }
     if (name === 'next') {
       setUI(false);
       var i = curIndex();
       if (chapters[i + 1]) { scrollToItem(chapters[i + 1]); return; }
       var Lt = lastItem();
       if (!Lt.done) { toast(Lt.failed ? '\uc774\ubc88 \ud654 \ubc88\uc5ed\uc774 \uc2e4\ud328\ud588\uc5b4\uc694. \ub2e4\uc2dc \uc2dc\ub3c4\ub97c \ub20c\ub7ec \uc8fc\uc138\uc694' : '\uc774\ubc88 \ud654\ub97c \uc544\uc9c1 \ubc88\uc5ed\ud558\uace0 \uc788\uc5b4\uc694'); return; }
+      if (Lt.isLast) { toast('\ub9c8\uc9c0\ub9c9 \ud654\uae4c\uc9c0 \uc77d\uc5c8\uc5b4\uc694'); return; }
       if (!Lt.ch.next) { openPicker('next', Lt); return; }
       var n = await appendNext();
       if (n) scrollToItem(n);
