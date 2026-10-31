@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.2.3
+// @version      1.2.4
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -218,7 +218,7 @@
     for (var t = 0; t < 4; t++) {
       try {
         var tk = await token(t > 0 && last && /API 401/.test(last.message));
-        var r = await gxhr({ method: 'POST', url: urlFor(C, locs[li]), anonymous: true, timeout: 180000,
+        var r = await gxhr({ method: 'POST', url: urlFor(C, locs[li]), anonymous: true, timeout: 120000,
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, data: JSON.stringify(req) });
         var j; try { j = JSON.parse(r.responseText); } catch (e) { j = {}; }
         if (r.status === 404 && li < locs.length - 1) { li++; t--; continue; }
@@ -237,7 +237,7 @@
         last = e;
         if (/MAX_TOKENS|\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c|\ud1a0\ud070 \ubc1c\uae09|\uc124\uc815\uc774 \ud544\uc694/.test(e.message)) break;
         if (/API (429|500|502|503|504)/.test(e.message) && t < 3) { await sleep(5000 * (t + 1)); continue; }
-        if (/API 4(00|03|04)|\uc2dc\uac04 \ucd08\uacfc/.test(e.message) || (/API 401/.test(e.message) && t > 0)) break;
+        if (/API 4(00|03|04)/.test(e.message) || (/\uc2dc\uac04 \ucd08\uacfc/.test(e.message) && t > 0) || (/API 401/.test(e.message) && t > 0)) break;
         await sleep(1500 * (t + 1));
       }
     }
@@ -301,7 +301,8 @@
     return { lines: res, title: t };
   }
   // onPart(\ub369\uc5b4\ub9ac \ubc88\ud638, \ubc88\uc5ed \uc904\ub4e4, \uc81c\ubaa9) \u2014 \uce90\uc2dc\uc5d0\uc11c \uac00\uc838\uc624\uba74 \ub369\uc5b4\ub9ac \ubc88\ud638 -1 \uc774 \uc544\ub2c8\ub77c \ub369\uc5b4\ub9ac\ubcc4\ub85c \ub098\ub220\uc11c \uc54c\ub824\uc90c
-  async function translate(ch, onPart) {
+  async function translate(ch, onPart, ctl) {
+    ctl = ctl || {};
     var chunks = makeChunks(ch);
     var hit = cacheGet(ch.url);
     if (hit && hit.lines && hit.lines.length) {
@@ -313,8 +314,11 @@
     }
     var title = ch.title, outLines = [], parts = [];
     var temp = ch.retrans ? Math.min(1, 0.3 + 0.25 * ch.retrans) : undefined;
+    if (ctl.title) title = ctl.title;
     for (var i = 0; i < chunks.length; i++) {
-      var r = splitTitle(await translateLines(chunks[i], 0, temp), title);
+      if (ctl.cancel) throw new Error('\ucde8\uc18c\ub428');
+      var r = ctl.keep && ctl.keep[i] ? { lines: ctl.keep[i], title: title } : splitTitle(await translateLines(chunks[i], 0, temp), title);
+      if (ctl.cancel) throw new Error('\ucde8\uc18c\ub428');
       title = r.title; outLines = outLines.concat(r.lines); parts.push(r.lines.length);
       onPart && onPart(i, r.lines, title);
     }
@@ -332,8 +336,10 @@
     if (m && m.content) return m.content.trim();
     var b = doc.querySelector('.bookname a,.book-name,.bookName,#bookname,.crumbs a:nth-last-of-type(1)');
     if (b && b.textContent.trim().length > 1 && b.textContent.trim().length < 40) return b.textContent.trim();
+    var bk = ((doc.title || '') + ' ' + chTitle).match(/\u300a([^\u300b]{1,40})\u300b/);
+    if (bk) return bk[1].trim();
     var parts = (doc.title || '').split(/\s*[_\-|\u2013\u2014,\uff0c]\s*/).map(function (x) { return x.trim(); })
-      .filter(function (x) { return x.length > 1 && x.length < 40 && x !== chTitle && chTitle.indexOf(x) < 0 && !/\u7b2c.+[\u7ae0\u56de\u8282\u7bc0]|\u5c0f[\u8aac\u8bf4]|\u7db2|\u7f51|\u5728[\u7dda\u7ebf]|\u95b1\u8b80|\u9605\u8bfb|oop/i.test(x); });
+      .filter(function (x) { return x.length > 1 && x.length < 40 && x !== chTitle && chTitle.indexOf(x) < 0 && !/\u7b2c.+[\u7ae0\u56de\u8282\u7bc0]|\u5c0f[\u8aaa\u8aac\u8bf4]|[\u66f8\u4e66]\u57ce|\u7db2|\u7f51|\u5728[\u7dda\u7ebf]|\u95b1\u8b80|\u9605\u8bfb|\u4e2d\u6587|oop/i.test(x); });
     return parts[0] || '';
   }
   function tocOf(doc, url, cands) {
@@ -347,7 +353,9 @@
   function chapterFull(doc, url) {
     var ch = chapterOf(doc, url);
     var cands = linkCands(doc, url);
-    ch.book = bookOf(doc, ch.title); ch.toc = tocOf(doc, url, cands); ch.id = workId(url);
+    ch.book = bookOf(doc, ch.title);
+    var stripped = ch.title.replace(/^\s*\u300a[^\u300b]+\u300b\s*/, '').trim(); if (stripped) ch.title = stripped; // \ud654 \uc81c\ubaa9 \uc55e\uc758 \u300a\uc791\ud488\uba85\u300b \uc81c\uac70
+    ch.toc = tocOf(doc, url, cands); ch.id = workId(url);
     return ch;
   }
 
@@ -663,13 +671,20 @@
 
   // ===================== \ud654 \ud45c\uc2dc =====================
   var pending = {}, chapters = [], appending = false;
-  function startTranslate(ch) {
-    if (!pending[ch.url]) pending[ch.url] = { ch: ch, parts: {}, title: null, done: null, subs: [] };
+  function startTranslate(ch, keep, title) {
+    if (!pending[ch.url]) pending[ch.url] = { ch: ch, parts: {}, title: null, done: null, subs: [], ctl: { keep: keep, title: title } };
     var P = pending[ch.url];
     if (!P.done) {
-      P.done = translate(ch, function (ci, ls, t) { P.title = t; P.parts[ci] = ls; P.subs.forEach(function (f) { f(ci, ls, t); }); });
+      P.done = translate(ch, function (ci, ls, t) { P.title = t; P.parts[ci] = ls; P.lastProg = Date.now(); P.subs.forEach(function (f) { f(ci, ls, t); }); }, P.ctl);
     }
     return P;
+  }
+  // \ubc88\uc5ed \uc911\uc5d0 \uba48\ucdc4\uc744 \ub54c: \ub05d\ub09c \ubd80\ubd84\uc740 \uc0b4\ub9ac\uace0 \ub098\uba38\uc9c0\ub9cc \uc0c8\ub85c \uc2dc\uc791
+  function restartTranslate(item) {
+    var old = pending[item.ch.url], keep = {}, title = null;
+    if (old) { old.ctl.cancel = true; keep = old.parts || {}; title = old.title; }
+    delete pending[item.ch.url];
+    return show(item.ch, item, keep, title);
   }
   async function prefetch(url) {
     try { var d = await getDoc(url); var ch = chapterFull(d, url); startTranslate(ch); return ch; }
@@ -683,7 +698,7 @@
     item.title = t; var tp = titleParts(t);
     item.chl.textContent = tp.label; item.chl.style.display = tp.label ? '' : 'none'; item.cht.textContent = tp.name;
   }
-  function show(ch, old) {
+  function show(ch, old, keep, keepTitle) {
     var sec = el('section'), chl = el('div', 'chl'), cht = el('h2', 'cht'), meta = el('div', 'meta');
     sec.appendChild(chl); sec.appendChild(cht); sec.appendChild(meta);
     var item = { ch: ch, sec: sec, chl: chl, cht: cht, meta: meta, title: ch.title, done: false, failed: false, nextP: null, chunks: makeChunks(ch), v: null };
@@ -696,10 +711,17 @@
     });
     var oi = old ? chapters.indexOf(old) : -1;
     if (oi >= 0) { old.sec.replaceWith(sec); chapters[oi] = item; } else { wrap.appendChild(sec); chapters.push(item); }
-    var P = startTranslate(ch), t0 = Date.now(), doneN = 0, total = grps.length, idx = 0;
+    var P = startTranslate(ch, keep, keepTitle), t0 = Date.now(), doneN = 0, total = grps.length, stuckShown = false;
+    item.P = P;
     meta.innerHTML = '<span class="dot"></span><span>\ubc88\uc5ed \uc911</span>';
     var tm = setInterval(function () {
-      meta.lastChild.textContent = '\ubc88\uc5ed \uc911 \u00b7 ' + doneN + '/' + total + ' \u00b7 ' + Math.round((Date.now() - t0) / 1000) + '\ucd08';
+      if (!meta.isConnected) { clearInterval(tm); return; }
+      meta.children[1].textContent = '\ubc88\uc5ed \uc911 \u00b7 ' + doneN + '/' + total + ' \u00b7 ' + Math.round((Date.now() - t0) / 1000) + '\ucd08';
+      // 45\ucd08 \ub118\uac8c \uc9c4\ud589\uc774 \uc5c6\uc73c\uba74 '\uc774\uc5b4\uc11c \ub2e4\uc2dc \uc2dc\ub3c4' \ubc84\ud2bc
+      if (!stuckShown && Date.now() - (P.lastProg || t0) > 45000) {
+        stuckShown = true;
+        var b = el('button', 'mini', '\uba48\ucd98 \uac83 \uac19\uc544\uc694 \u00b7 \uc774\uc5b4\uc11c \ub2e4\uc2dc \uc2dc\ub3c4'); b.dataset.act = 'resume'; b._item = item; b.style.marginLeft = '6px'; meta.appendChild(b);
+      }
     }, 1000);
     var gi = {};
     function fillGroup(ci, ls, t) {
@@ -722,7 +744,9 @@
       updateTail(); onScroll();
       return item;
     }, function (e) {
-      clearInterval(tm); item.failed = true; meta.textContent = '';
+      clearInterval(tm);
+      if (/\ucde8\uc18c\ub428/.test(e.message)) return item; // \uc0c8 \ubc88\uc5ed\uc73c\ub85c \ubc14\ub01c
+      item.failed = true; meta.textContent = '';
       var er = el('div', 'er', '\ubc88\uc5ed \uc2e4\ud328: ' + e.message); sec.insertBefore(er, sec.querySelector('.grp'));
       var row = el('div', 'endrow');
       var rb = el('button', 'btn pri', '\ub2e4\uc2dc \uc2dc\ub3c4'); rb.dataset.act = 'retry'; rb._item = item; row.appendChild(rb);
@@ -942,11 +966,12 @@
       var txt = holdP ? holdP.textContent : ''; closeSheet();
       try { await navigator.clipboard.writeText(txt); toast('\ubcf5\uc0ac\ud588\uc5b4\uc694'); } catch (e) { toast('\ubcf5\uc0ac\ud558\uc9c0 \ubabb\ud588\uc5b4\uc694'); } return;
     }
-    if (name === 'retry') { var it = t._item; delete pending[it.ch.url]; show(it.ch, it); return; }
+    if (name === 'resume') { restartTranslate(t._item); toast('\uba48\ucd98 \ubd80\ubd84\ubd80\ud130 \ub2e4\uc2dc \ubc88\uc5ed\ud560\uac8c\uc694'); return; }
+    if (name === 'retry') { restartTranslate(t._item); return; }
     if (name === 'retrans') {
       var rit = t._item || chapters[curIndex()];
       if (!rit) return;
-      if (!rit.done && !rit.failed) { toast('\uc544\uc9c1 \ubc88\uc5ed \uc911\uc774\uc5d0\uc694'); return; }
+      if (!rit.done && !rit.failed) { closeSheet(); restartTranslate(rit); toast('\uba48\ucd98 \ubd80\ubd84\ubd80\ud130 \ub2e4\uc2dc \ubc88\uc5ed\ud560\uac8c\uc694'); return; }
       closeSheet(); cacheDel(rit.ch.url); delete pending[rit.ch.url];
       var ridx = chapters.indexOf(rit);
       rit.ch.retrans = (rit.ch.retrans || 0) + 1;
