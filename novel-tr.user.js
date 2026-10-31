@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.2.1
+// @version      1.2.2
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -70,12 +70,28 @@
     }
     return s;
   }
+  var SKIP = /^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA|NAV|HEADER|FOOTER|ASIDE|BUTTON|SELECT|OPTION|A|H1|H2|H3)$/;
+  function hanLen(t) { var m = t.match(/[\u3400-\u9fff]/g); return m ? m.length : 0; }
+  // \ubcf8\ubb38 \ucc3e\uae30: \u2460 \ud754\ud55c \ubcf8\ubb38 id/class \u2461 \uae00\uc790(\ud55c\uc790) \uc218 \uc810\uc218 \u2014 \uae00\uc774 \uc9c1\uc811 \ub2f4\uae34 \uc694\uc18c\uc5d0 \uc804\ubd80, \uadf8 \uc704 \ub2e8\uacc4\uc5d0 \uc808\ubc18\u00b74\ubd84\uc758 1\uc744 \ub354\ud574 \uac00\uc7a5 \ub192\uc740 \uacf3
   function findBody(doc) {
     for (var i = 0; i < SEL.length; i++) {
       var e = doc.querySelector(SEL[i]);
-      if (e && own(e) > 200) return e;
+      if (e && hanLen(e.textContent) > 150 && own(e) > 100) return e;
     }
-    var best = null, b = 0, all = doc.body.querySelectorAll('div,article,section,td,dd');
+    if (!doc.body) return null;
+    var score = new Map(), tw = doc.createTreeWalker(doc.body, 4 /* SHOW_TEXT */), n, cnt = 0;
+    while ((n = tw.nextNode()) && cnt++ < 60000) {
+      var len = hanLen(n.nodeValue); if (len < 4) continue;
+      var p = n.parentElement, bad = false;
+      for (var q = p; q && q !== doc.body; q = q.parentElement) if (SKIP.test(q.tagName)) { bad = true; break; }
+      if (bad || !p) continue;
+      if (/^(P|SPAN|FONT|B|I|EM|STRONG|BR)$/.test(p.tagName) && p.parentElement && p.parentElement !== doc.body) p = p.parentElement; // \ubb38\ub2e8 \ud558\ub098 \ub300\uc2e0 \ubb38\ub2e8\uc744 \ubaa8\uc740 \uc0c1\uc790\uc5d0 \uc810\uc218
+      for (var k = 0, w = 1; p && p !== doc.documentElement && k < 3; k++, w /= 2, p = p.parentElement) score.set(p, (score.get(p) || 0) + len * w);
+    }
+    var best = null, bs = 0;
+    score.forEach(function (v, k) { if (v > bs) { bs = v; best = k; } });
+    if (best && bs > 80) return best;
+    var b = 0, all = doc.body.querySelectorAll('div,article,section,td,dd');
     for (var j = 0; j < all.length; j++) { var v = own(all[j]); if (v > b) { b = v; best = all[j]; } }
     return best;
   }
@@ -307,6 +323,8 @@
     var L = learned()[location.host.replace(/^www\./, '') + ':toc'];
     for (var i = 0; i < cands.length; i++) if (L && cands[i].t === L) return cands[i].u;
     for (i = 0; i < cands.length; i++) if (cands[i].t.length <= 20 && TOCRX.test(cands[i].t)) return cands[i].u;
+    // \uc791\ud488 \uc18c\uac1c\u00b7\ubaa9\ub85d \ud398\uc774\uc9c0\ucc98\ub7fc \ubcf4\uc774\ub294 \ub9c1\ud06c (\uc608: /book/123, /info/123, \u8fd4\u56de)
+    for (i = 0; i < cands.length; i++) if (cands[i].t.length <= 12 && /\/(book|books|info|novel|catalog|mulu|list|index)[\/_\-]?\d*/i.test(cands[i].u) && /\u8fd4\u56de|[\u66f8\u4e66]|\u76ee|\ubaa9|book/i.test(cands[i].t + cands[i].u)) return cands[i].u;
     return null;
   }
   function chapterFull(doc, url) {
@@ -1042,8 +1060,9 @@
     var all = (document.body && document.body.textContent || '').slice(0, 300000);
     if (hanCount(all) < 400) return null; // \uc911\uad6d\uc5b4\uac00 \uac70\uc758 \uc5c6\ub294 \ud398\uc774\uc9c0\ub294 \ubc14\ub85c \uc81c\uc678 (\uac00\ubccd\uac8c)
     var body = null; try { body = findBody(document); } catch (e) { }
-    if (!body || own(body) < 300) return null;
-    var t = body.textContent; return hanCount(t) / Math.max(1, t.replace(/\s/g, '').length) > 0.3 ? body : null;
+    if (!body) return null;
+    var t = body.textContent, hn = hanCount(t);
+    return hn >= 250 && hn / Math.max(1, t.replace(/\s/g, '').length) > 0.3 ? body : null;
   }
   function openReader() { window.open(location.href.split('#')[0] + '#nvtr' + Date.now(), READER); }
   function addMenus(shown, show) {
@@ -1066,11 +1085,15 @@
     if (mode === 'off') return;
     if (mode === 'on') { show(true); return; }
     // \uc790\ub3d9 \uac10\uc9c0: \ub2a6\uac8c \uadf8\ub824\uc9c0\ub294 \uc0ac\uc774\ud2b8\ub3c4 \uc788\uc5b4\uc11c \uba87 \ubc88 \ub2e4\uc2dc \ud655\uc778
-    var tries = 0;
-    (function check() {
-      if (looksLikeNovel()) { show(true); return; }
-      if (++tries < 4) setTimeout(check, 1500);
-    })();
+    var done = false, t0 = Date.now(), pend = null;
+    function check() { pend = null; if (done) return; if (looksLikeNovel()) { done = true; mo3.disconnect(); show(true); } }
+    var mo3 = new MutationObserver(function () {
+      if (done || pend) return;
+      if (Date.now() - t0 > 15000) { mo3.disconnect(); return; }
+      pend = setTimeout(check, 600);
+    });
+    if (document.body) mo3.observe(document.body, { childList: true, subtree: true, characterData: true });
+    check(); setTimeout(check, 2000); setTimeout(check, 6000); setTimeout(function () { mo3.disconnect(); }, 15500);
   }
   function makeLauncher() {
     var h = document.createElement('div');
