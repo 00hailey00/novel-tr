@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.2.8
+// @version      1.2.9
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -59,7 +59,8 @@
     prev: /(?:pre(?:v|vious)?_?page|prevpage|prepage|prev?_?url|preurl|prev?_?chapter|prev?_?link)\s*[:=]\s*['"]([^'"]+)['"]/i };
   var LK = 'nvtrLinks';
   function learned() { return gget(LK, {}) || {}; }
-  function learn(kind, t) { var L = learned(); L[location.host.replace(/^www\./, '') + ':' + kind] = t; gset(LK, L); }
+  function hostOf(u) { try { return new URL(u).host.replace(/^www\./, ''); } catch (e) { return location.host.replace(/^www\./, ''); } }
+  function learn(kind, t, u) { var L = learned(); L[hostOf(u || location.href) + ':' + kind] = t; gset(LK, L); }
 
   function own(el) {
     var s = 0;
@@ -128,7 +129,7 @@
     return out;
   }
   function findLink(doc, base, kind, cands) {
-    var i, L = learned()[location.host.replace(/^www\./, '') + ':' + kind];
+    var i, L = learned()[hostOf(base) + ':' + kind];
     if (L) for (i = 0; i < cands.length; i++) if (cands[i].t === L) return cands[i].u;
     var r = doc.querySelector(kind === 'next' ? 'link[rel~=next][href],a[rel~=next][href]' : 'link[rel~=prev][href],a[rel~=prev][href]');
     if (r) { try { return new URL(r.getAttribute('href'), base).href; } catch (e) { } }
@@ -201,8 +202,8 @@
       '/publishers/google/models/' + encodeURIComponent(C.m) + ':generateContent';
   }
   function sleep(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
-  var SAFE = ['OFF', 'BLOCK_NONE', 'BLOCK_ONLY_HIGH'];
   async function callApi(text, temp, sys, onStatus) {
+    var SAFE = ['OFF', 'BLOCK_NONE', 'BLOCK_ONLY_HIGH'];
     var say = onStatus || function () { };
     var C = cfg();
     if (!C || !C.sa || !C.sa.private_key) throw new Error('\ubc88\uc5ed \uc124\uc815\uc774 \ud544\uc694\ud574\uc694. \uc544\ub798 "\ubc88\uc5ed \uc124\uc815 \uc5f4\uae30"\ub97c \ub20c\ub7ec \ucc98\uc74c \ud55c \ubc88\ub9cc \uc124\uc815\ud574 \uc8fc\uc138\uc694.');
@@ -326,11 +327,14 @@
     if (ctl.title) title = ctl.title;
     var res = new Array(chunks.length), nextI = 0;
     var say = function (m) { ctl.status = m; ctl.onStatus && ctl.onStatus(m); };
+    var failed = false;
     async function worker() {
-      while (nextI < chunks.length) {
+      while (nextI < chunks.length && !failed) {
         var i = nextI++;
         if (ctl.cancel) throw new Error('\ucde8\uc18c\ub428');
-        var r = ctl.keep && ctl.keep[i] ? { lines: ctl.keep[i], title: title } : splitTitle(await translateLines(chunks[i], 0, temp, say), title);
+        var r;
+        try { r = ctl.keep && ctl.keep[i] ? { lines: ctl.keep[i], title: title } : splitTitle(await translateLines(chunks[i], 0, temp, say), title); }
+        catch (e) { failed = true; throw e; }
         if (ctl.cancel) throw new Error('\ucde8\uc18c\ub428');
         if (i === 0) title = r.title;
         res[i] = r.lines;
@@ -348,7 +352,7 @@
   // ===================== \uc791\ud488 \uc815\ubcf4 (\uc11c\uc7ac\u00b7\ubaa9\ucc28\uc6a9) =====================
   function workId(u) { return String(u).replace(/[?#].*$/, '').replace(/[^\/]*$/, ''); }
   // \uc791\ud488 \uad6c\ubd84: \u2460 \uc791\ud488 \uc774\ub984 \u2461 \uc791\ud488(\ubaa9\ucc28) \ud398\uc774\uc9c0 \uc8fc\uc18c \u2462 \uc8fc\uc18c\uc758 \ud3f4\ub354 \u2014 \uc0ac\uc774\ud2b8\ub9c8\ub2e4 \uc8fc\uc18c \uad6c\uc870\uac00 \ub2ec\ub77c\uc11c \uc774\ub984\uc744 \uba3c\uc800 \uc500
-  var SITENAME = /\u5c0f[\u8aaa\u8aac\u8bf4]|[\u66f8\u4e66]\u57ce|[\u66f8\u4e66]\u5c4b|[\u66f8\u4e66]\u7db2|\u7db2|\u7f51|\u95b1\u8b80|\u9605\u8bfb|\u4e2d\u6587|\u6587\u5b78|\u6587\u5b66/;
+  var SITENAME = /(\u5c0f[\u8aaa\u8aac\u8bf4]|[\u66f8\u4e66]\u57ce|[\u66f8\u4e66]\u5c4b|[\u66f8\u4e66]\u9662|[\u66f8\u4e66]\u5427|\u95b1\u8b80|\u9605\u8bfb|\u6587\u5b78|\u6587\u5b66|\u4e2d\u6587)(\u7db2|\u7f51|\u7ad9|\u57ce)?$|(\u7db2|\u7f51|\u7ad9)$|^(oop|www)\b/i;
   function workKey(url, book, toc) {
     var host = String(url).replace(/^https?:\/\/(www\.)?/i, '').replace(/\/.*$/, '');
     if (book && !SITENAME.test(book)) return host + '|b:' + book.replace(/\s+/g, '');
@@ -368,7 +372,7 @@
     return parts[0] || '';
   }
   function tocOf(doc, url, cands) {
-    var L = learned()[location.host.replace(/^www\./, '') + ':toc'];
+    var L = learned()[hostOf(url) + ':toc'];
     for (var i = 0; i < cands.length; i++) if (L && cands[i].t === L) return cands[i].u;
     for (i = 0; i < cands.length; i++) if (cands[i].t.length <= 20 && TOCRX.test(cands[i].t)) return cands[i].u;
     // \uc791\ud488 \uc18c\uac1c\u00b7\ubaa9\ub85d \ud398\uc774\uc9c0\ucc98\ub7fc \ubcf4\uc774\ub294 \ub9c1\ud06c (\uc608: /book/123, /info/123, \u8fd4\u56de)
@@ -621,7 +625,7 @@
       return;
     }
     // \uc544\ubb34 \ucc3d\ub3c4 \uc5c6\uc744 \ub54c: \uc2e4\uc218\ub85c \ubc88\uc5ed \ud654\uba74\uc744 \ub098\uac00\uc9c0 \uc54a\uac8c \ud55c \ubc88 \ub354 \ud655\uc778
-    if (Date.now() - lastBack < 2000) { history.back(); return; }
+    if (Date.now() - lastBack < 2000) { try { window.close(); } catch (e) { } setTimeout(function () { history.back(); }, 150); return; }
     lastBack = Date.now(); toast('\ud55c \ubc88 \ub354 \ub204\ub974\uba74 \ub2eb\ud799\ub2c8\ub2e4');
     try { history.pushState({ nvB: 1 }, '', location.href); } catch (e) { }
   });
@@ -714,7 +718,7 @@
   }
   async function retrParagraph(p) {
     var it = itemOf(p); if (!it) return;
-    var srcLines = (it.chunks && it.chunks[p._grp]) || it.ch.lines;
+    var srcLines = (p._grp >= 0 && it.chunks && it.chunks[p._grp]) || it.ch.lines;
     var C = cfg() || {};
     var sys = '\ub108\ub294 \uc911\uad6d\uc5b4 \uc6f9\uc18c\uc124 \ubc88\uc5ed \uad50\uc815\uac00\ub2e4. \uc8fc\uc5b4\uc9c4 \uc6d0\ubb38 \uc77c\ubd80\uc640 \ud55c\uad6d\uc5b4 \ubc88\uc5ed \ubb38\ub2e8 \ud558\ub098\ub97c \ubcf4\uace0, \uadf8 \ubb38\ub2e8\uc5d0 \ud574\ub2f9\ud558\ub294 \uc6d0\ubb38 \ubd80\ubd84\uc744 \ucc3e\uc544 \ub354 \uc815\ud655\ud558\uace0 \uc790\uc5f0\uc2a4\ub7ec\uc6b4 \ud55c\uad6d\uc5b4 \uc18c\uc124 \ubb38\uccb4\ub85c \ub2e4\uc2dc \ubc88\uc5ed\ud55c\ub2e4. \ub2e4\uc2dc \ubc88\uc5ed\ud55c \ubb38\ub2e8 \ud558\ub098\ub9cc \ucd9c\ub825\ud558\uace0 \uc124\uba85\uc740 \ubd99\uc774\uc9c0 \uc54a\ub294\ub2e4.' +
       (C.g ? '\n\n\ub2e4\uc74c \uc6a9\uc5b4\uc9d1\uc744 \ubc18\ub4dc\uc2dc \ub530\ub978\ub2e4:\n' + C.g : '');
@@ -787,10 +791,11 @@
     var gi = {};
     function fillGroup(ci, ls, t) {
       setTitle(item, t);
-      if (ci === -1) { grps.forEach(function (g, k) { if (k) g.remove(); }); grps = [grps[0]]; ci = 0; }
-      var g = grps[ci]; if (!g || gi[ci]) return; gi[ci] = 1; doneN++;
+      var whole = ci === -1;
+      if (whole) { grps.forEach(function (g, k) { if (k) g.remove(); }); grps = [grps[0]]; ci = 0; }
+      var g = grps[ci]; if (!g || gi[ci]) return; gi[ci] = 1; doneN = whole ? total : doneN + 1;
       g.innerHTML = '';
-      ls.forEach(function (l, k) { var p = el('p', 'tr', l); p.style.animationDelay = Math.min(k, 12) * 25 + 'ms'; p._grp = ci; g.appendChild(p); });
+      ls.forEach(function (l, k) { var p = el('p', 'tr', l); p.style.animationDelay = Math.min(k, 12) * 25 + 'ms'; p._grp = whole ? -1 : ci; g.appendChild(p); });
     }
     Object.keys(P.parts).forEach(function (ci) { fillGroup(+ci, P.parts[ci], P.title); });
     P.subs.push(fillGroup);
@@ -1092,7 +1097,7 @@
     if (name === 'pick') { openPicker(t.dataset.k, chapters[curIndex()] || lastItem()); return; }
     if (name === 'pickLink') {
       var k = t.dataset.k, c = pickItem.ch.links[+t.dataset.i];
-      learn(k, c.t); pickItem.ch[k] = c.u; closeSheet();
+      learn(k, c.t, pickItem.ch.url); pickItem.ch[k] = c.u; closeSheet();
       if (k === 'next') { pickItem.nextP = null; pickItem.nextErr = null; toast('\uae30\uc5b5\ud588\uc5b4\uc694. \ub2e4\uc74c \ud654\ub97c \ubd88\ub7ec\uc62c\uac8c\uc694'); var nn = await appendNext(); if (nn) scrollToItem(nn); }
       else if (k === 'toc') { var L3 = libAll(); if (L3[pickItem.ch.id]) { L3[pickItem.ch.id].toc = c.u; gset('lib', L3); } toast('\uae30\uc5b5\ud588\uc5b4\uc694'); renderToc(); }
       else { toast('\uae30\uc5b5\ud588\uc5b4\uc694. \uc774\uc804 \ud654\ub97c \ubd88\ub7ec\uc62c\uac8c\uc694'); act('prev', t); }
@@ -1301,7 +1306,7 @@
     }
     function msg(t, ok) { $('msg').textContent = t; $('msg').style.color = ok ? '#2e8b57' : '#d9534f'; }
     $('save').onclick = function () {
-      var n = { sa: C.sa, m: $('m').value.trim() || 'gemini-3.8-flash', loc: $('loc').value.trim() || 'global', g: $('g').value.trim() };
+      var n = { sa: C.sa, m: $('m').value.trim() || 'gemini-3.8-flash', loc: $('loc').value.trim() || 'global', g: $('g').value.trim(), safe: C.safe, noThink: (C.m === ($('m').value.trim() || 'gemini-3.8-flash')) ? C.noThink : 0 };
       var raw = $('sa').value.trim();
       if (raw) {
         var j; try { j = JSON.parse(raw); } catch (e) { return msg('JSON \ud615\uc2dd\uc774 \uc62c\ubc14\ub974\uc9c0 \uc54a\uc544\uc694. \ucc98\uc74c\ubd80\ud130 \ub05d\uae4c\uc9c0 \ube60\uc9d0\uc5c6\uc774 \ubd99\uc5ec\ub123\uc5c8\ub294\uc9c0 \ud655\uc778\ud558\uc138\uc694.'); }
