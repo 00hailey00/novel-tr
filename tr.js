@@ -1,13 +1,45 @@
 (function () {
-  if (window.__oopTr) { alert('\uc774\ubbf8 \ubc88\uc5ed \ubaa8\ub4dc\uc608\uc694'); return; }
   var BASE = ((document.currentScript && document.currentScript.src) || '').replace(/[?#].*$/, '').replace(/[^\/]*$/, '');
   if (!BASE) { alert('\uc2a4\ud06c\ub9bd\ud2b8 \uc8fc\uc18c\ub97c \uc54c \uc218 \uc5c6\uc5b4\uc694'); return; }
+  var READER = 'nvtrReader';
+
+  // ---- \uc6d0\ubcf8 \ud0ed: \ubc88\uc5ed \uc804\uc6a9 \ud0ed\uc744 \uc5f4\uac70\ub098(\uc788\uc73c\uba74 \uc7ac\uc0ac\uc6a9) \uadf8 \ud0ed\uc5d0\uc11c \ubc88\uc5ed \uc2dc\uc791 ----
+  if (window.name !== READER) {
+    var url = location.href, w = null, oldDoc = null;
+    try { w = window.open('', READER); } catch (e) { }
+    if (!w) {
+      if (confirm('\uc0c8 \ud0ed\uc774 \ucc28\ub2e8\ub410\uc5b4\uc694. \uc774 \ud0ed\uc5d0\uc11c \ubc14\ub85c \ubc88\uc5ed\ud560\uae4c\uc694?')) { window.name = READER; }
+      else return;
+    } else {
+      try { oldDoc = w.document; } catch (e) { }
+      try { w.location.href = url; } catch (e) { w = window.open(url, READER); }
+      try { w.focus(); } catch (e) { }
+      var t0 = Date.now();
+      (function poll() {
+        var d = null;
+        try { d = w.document; if (d === oldDoc || w.location.href === 'about:blank' || d.readyState === 'loading' || w.__oopTr) d = null; } catch (e) { d = null; }
+        if (d) {
+          var sc = d.createElement('script'); sc.src = BASE + 'tr.js?' + Date.now();
+          (d.body || d.documentElement).appendChild(sc);
+          return;
+        }
+        if (Date.now() - t0 < 40000) setTimeout(poll, 150);
+      })();
+      return;
+    }
+  }
+  if (window.__oopTr) return;
   window.__oopTr = 1;
 
   var SEL = ['#content', '#chaptercontent', '#chapterContent', '#booktxt', '#nr1', '#htmlContent',
     '#txt', '#TextContent', '.read-content', '.readcontent', '.txtnav', '.content', 'article'];
-  var NEXT = /\u4e0b\u4e00[\u7ae0\u9875\u9801\u8282\u7bc0\u8bdd\u8a71]|\u4e0b[\u7ae0\u9875\u9801]|\u4e0b\u4e00\u7bc7|next/i;
-  var PREV = /\u4e0a\u4e00[\u7ae0\u9875\u9801\u8282\u7bc0\u8bdd\u8a71]|\u4e0a[\u7ae0\u9875\u9801]|\u4e0a\u4e00\u7bc7|prev/i;
+  var NEXT = /\u4e0b\u4e00?[\u7ae0\u9875\u9801\u8282\u7bc0\u8bdd\u8a71\u7bc7\u5f20\u5f35\u56de]|[\u540e\u5f8c]\u4e00[\u7ae0\u9875\u9801\u8282\u7bc0]|^\s*next|next\s*(page|chapter)|\ub2e4\uc74c\s*[\ud654\uc7a5\ud398]/i;
+  var PREV = /\u4e0a\u4e00?[\u7ae0\u9875\u9801\u8282\u7bc0\u8bdd\u8a71\u7bc7\u5f20\u5f35\u56de]|\u524d\u4e00[\u7ae0\u9875\u9801\u8282\u7bc0]|^\s*prev|previous|\uc774\uc804\s*[\ud654\uc7a5\ud398]/i;
+  var NV = { next: /(?:next_?page|nextpage|next_?url|nexturl|next_?chapter|next_?link|nextlink)\s*[:=]\s*['"]([^'"]+)['"]/i,
+    prev: /(?:pre(?:v|vious)?_?page|prevpage|prepage|prev?_?url|preurl|prev?_?chapter|prev?_?link)\s*[:=]\s*['"]([^'"]+)['"]/i };
+  var LK = 'nvtrLinks';
+  function learned() { try { return JSON.parse(localStorage.getItem(LK) || '{}'); } catch (e) { return {}; } }
+  function learn(kind, t) { var L = learned(); L[location.host + ':' + kind] = t; try { localStorage.setItem(LK, JSON.stringify(L)); } catch (e) { } }
 
   function own(el) {
     var s = 0;
@@ -40,23 +72,43 @@
     var h = doc.querySelector('h1') || doc.querySelector('.bookname h1, .title, h2');
     return (h ? h.textContent : doc.title).trim();
   }
-  function nextOf(doc, base, RX) {
-    RX = RX || NEXT;
-    var a = doc.querySelectorAll('a[href]');
-    for (var i = 0; i < a.length; i++) {
-      if (RX.test(a[i].textContent.trim())) {
-        var h = a[i].getAttribute('href');
-        if (!h || /^javascript:|^#/.test(h)) continue;
-        var u = new URL(h, base).href;
-        if (u !== base) return u;
+  function linkCands(doc, base) {
+    var out = [], seen = {};
+    [].forEach.call(doc.querySelectorAll('a,[onclick]'), function (a) {
+      var u = null, h = a.getAttribute('href'), oc = a.getAttribute('onclick') || '';
+      if (h && !/^\s*(javascript:|#|mailto:|tel:)/i.test(h)) u = h;
+      else {
+        var m = (oc + ' ' + (h || '')).match(/(?:location(?:\.href)?|window\.open|\.href)\s*(?:=|\()\s*['"]([^'"]+)['"]/);
+        if (m) u = m[1];
       }
-    }
+      if (!u) return;
+      try { u = new URL(u, base).href; } catch (e) { return; }
+      if (u.split('#')[0] === base.split('#')[0] || !/^https?:/.test(u)) return;
+      var t = (a.textContent + ' ' + (a.title || '') + ' ' + (a.getAttribute('aria-label') || '') + ' ' +
+        [].map.call(a.querySelectorAll('img[alt]'), function (i) { return i.alt; }).join(' ')).replace(/\s+/g, ' ').trim();
+      if (seen[u + '|' + t]) return; seen[u + '|' + t] = 1;
+      out.push({ t: t, u: u });
+    });
+    return out;
+  }
+  function findLink(doc, base, kind, cands) {
+    var i, L = learned()[location.host + ':' + kind];
+    if (L) for (i = 0; i < cands.length; i++) if (cands[i].t === L) return cands[i].u;
+    var r = doc.querySelector(kind === 'next' ? 'link[rel~=next][href],a[rel~=next][href]' : 'link[rel~=prev][href],a[rel~=prev][href]');
+    if (r) { try { return new URL(r.getAttribute('href'), base).href; } catch (e) { } }
+    var RX = kind === 'next' ? NEXT : PREV;
+    for (i = 0; i < cands.length; i++) if (cands[i].t.length <= 40 && RX.test(cands[i].t)) return cands[i].u;
+    var src = [].map.call(doc.querySelectorAll('script'), function (x) { return x.textContent; }).join('\n');
+    var m = src.match(NV[kind]);
+    if (m) { try { return new URL(m[1], base).href; } catch (e) { } }
     return null;
   }
   function chapterOf(doc, url) {
     var body = findBody(doc);
     if (!body) throw new Error('\ubcf8\ubb38\uc744 \ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694');
-    return { url: url, title: titleOf(doc), lines: lines(body), next: nextOf(doc, url), prev: nextOf(doc, url, PREV) };
+    var cands = linkCands(doc, url);
+    return { url: url, title: titleOf(doc), lines: lines(body), links: cands.filter(function (c) { return c.t; }).slice(0, 120),
+      next: findLink(doc, url, 'next', cands), prev: findLink(doc, url, 'prev', cands) };
   }
   async function getDoc(u) {
     var r = await fetch(u, { credentials: 'include' });
@@ -82,7 +134,14 @@
       if (e.source !== fr.contentWindow || e.origin !== frOrigin || !e.data || !e.data.nvtr) return;
       var d = e.data;
       if (d.type === 'needSetup') fr.style.display = 'block';
-      else if (d.type === 'ready') { fr.style.display = 'none'; readyRes(); }
+      else if (d.type === 'ready') {
+        fr.style.display = 'none'; readyRes();
+        if (d.prefs && (d.prefs.ts || 0) > (prefs.ts || 0) && typeof applyPrefs === 'function') {
+          prefs = fill(d.prefs); try { localStorage.setItem(PK, JSON.stringify(prefs)); } catch (e) { } applyPrefs();
+        } else if ((prefs.ts || 0) > ((d.prefs && d.prefs.ts) || 0)) {
+          fr.contentWindow.postMessage({ nvtr: 1, type: 'setPrefs', prefs: prefs }, frOrigin);
+        }
+      }
       else if (d.type === 'closeSettings') fr.style.display = 'none';
       else if (d.type === 'result') {
         var q = reqs[d.id]; if (!q) return; delete reqs[d.id];
@@ -102,16 +161,32 @@
   var CK = '__oopTrCache';
   function cacheGet(u) { try { return JSON.parse(localStorage.getItem(CK) || '{}')[u]; } catch (e) { return null; } }
   function cachePut(u, v) {
-    try {
-      var c = JSON.parse(localStorage.getItem(CK) || '{}'); c[u] = v;
-      var k = Object.keys(c); while (k.length > 40) delete c[k.shift()];
-      localStorage.setItem(CK, JSON.stringify(c));
-    } catch (e) { }
+    var c; try { c = JSON.parse(localStorage.getItem(CK) || '{}'); } catch (e) { c = {}; }
+    c[u] = v;
+    var k = Object.keys(c); while (k.length > 60) delete c[k.shift()];
+    for (var tries = 0; tries < 6; tries++) {
+      try { localStorage.setItem(CK, JSON.stringify(c)); return; }
+      catch (e) { k = Object.keys(c); if (k.length <= 1) return; k.slice(0, Math.ceil(k.length / 2)).forEach(function (x) { if (x !== u) delete c[x]; }); }
+    }
   }
-
+  // \ub9c9\ud788\uac70\ub098(\uc548\uc804 \ud544\ud130) \uc798\ub9ac\uba74(\uae38\uc774 \ucd08\uacfc) \ubc18\uc73c\ub85c \ub098\ub220 \ub2e4\uc2dc \uc2dc\ub3c4, \ub05d\uae4c\uc9c0 \ub9c9\ud788\ub294 \ud55c \uc904\uc740 \uc6d0\ubb38\uc73c\ub85c \ud45c\uc2dc
+  var BLOCKED = /SAFETY|PROHIBITED|BLOCKLIST|SPII|RECITATION|OTHER|MAX_TOKENS|\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c/i;
+  async function translateLines(ls, depth) {
+    try {
+      var out = (await callApi(ls.join('\n'))).split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+      return out;
+    } catch (e) {
+      if (!BLOCKED.test(e.message) || depth > 6) throw e;
+      if (ls.length === 1) return ['\u3014\ubc88\uc5ed \ucc28\ub2e8 \u2014 \uc6d0\ubb38\u3015 ' + ls[0]];
+      var h = Math.ceil(ls.length / 2);
+      var a1 = await translateLines(ls.slice(0, h), depth + 1);
+      var a2 = await translateLines(ls.slice(h), depth + 1);
+      return a1.concat(a2);
+    }
+  }
   async function translate(ch, onPart) {
     var hit = cacheGet(ch.url);
-    if (hit) { onPart && onPart(hit.lines, hit.title); return hit; }
+    if (hit && hit.lines && hit.lines.length) { onPart && onPart(hit.lines, hit.title); return hit; }
     var src = ['[\uc81c\ubaa9] ' + ch.title].concat(ch.lines), chunks = [], cur = [], n = 0;
     src.forEach(function (l) {
       if (n + l.length > (chunks.length ? 3000 : 1200) && cur.length) { chunks.push(cur); cur = []; n = 0; }
@@ -120,15 +195,16 @@
     if (cur.length) chunks.push(cur);
     var title = ch.title, outLines = [];
     for (var i = 0; i < chunks.length; i++) {
-      var res = (await callApi(chunks[i].join('\n'))).split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
+      var res = await translateLines(chunks[i], 0);
       res = res.filter(function (l) {
         var m = l.match(/^\[\uc81c\ubaa9\]\s*(.*)$/);
-        if (m) { title = m[1]; return false; }
+        if (m) { title = m[1] || title; return false; }
         return true;
       });
       outLines = outLines.concat(res);
       onPart && onPart(res, title);
     }
+    if (!outLines.length) throw new Error('\ubc88\uc5ed \uacb0\uacfc\uac00 \ube44\uc5b4 \uc788\uc5b4\uc694');
     var v = { title: title, lines: outLines };
     cachePut(ch.url, v);
     return v;
@@ -160,11 +236,32 @@
     ['mw', '\ubcf8\ubb38 \ud3ed', 40, 400, 1000, function (v) { return v + 'px'; }]
   ];
   var PK = 'nvtrPrefs';
-  var DEF = { theme: 'auto', font: 'sys', fs: 18, lh: 1.85, ps: 0.9, mw: 680, pad: 22, ind: 0, auto: 1 };
-  var prefs = {};
-  try { prefs = JSON.parse(localStorage.getItem(PK) || '{}'); } catch (e) { }
-  Object.keys(DEF).forEach(function (k) { if (prefs[k] == null) prefs[k] = DEF[k]; });
-  function savePrefs() { try { localStorage.setItem(PK, JSON.stringify(prefs)); } catch (e) { } }
+  var DEF = { theme: 'auto', font: 'sys', fs: 18, lh: 1.85, ps: 0.9, mw: 680, pad: 22, ind: 0, auto: 1, ts: 0 };
+  // \uc124\uc815\uc744 \uc138 \uad70\ub370(\uc0ac\uc774\ud2b8 \uc800\uc7a5\uc18c \u00b7 \ucfe0\ud0a4(www \uc720\ubb34 \uacf5\ud1b5) \u00b7 \uc124\uc815 \ud398\uc774\uc9c0 \uc800\uc7a5\uc18c)\uc5d0 \uac19\uc774 \uc800\uc7a5\ud558\uace0, \uac00\uc7a5 \ucd5c\uadfc \uac83\uc744 \uc500
+  var CDOM = location.hostname.replace(/^www\./, '');
+  function readCookie() {
+    var m = document.cookie.match(/(?:^|;\s*)nvtrPrefs=([^;]*)/);
+    try { return m ? JSON.parse(decodeURIComponent(m[1])) : null; } catch (e) { return null; }
+  }
+  function readLocal() { try { return JSON.parse(localStorage.getItem(PK) || 'null'); } catch (e) { return null; } }
+  function pickNewest() {
+    var best = null;
+    [].slice.call(arguments).forEach(function (p) { if (p && typeof p === 'object' && (!best || (p.ts || 0) > (best.ts || 0))) best = p; });
+    return best;
+  }
+  function fill(p) { p = p || {}; Object.keys(DEF).forEach(function (k) { if (p[k] == null) p[k] = DEF[k]; }); return p; }
+  var prefs = fill(JSON.parse(JSON.stringify(pickNewest(readLocal(), readCookie()) || {})));
+  function savePrefs() {
+    prefs.ts = Date.now();
+    var j = JSON.stringify(prefs);
+    try { localStorage.setItem(PK, j); } catch (e) { }
+    try {
+      var c = 'nvtrPrefs=' + encodeURIComponent(j) + ';path=/;max-age=31536000;SameSite=Lax';
+      document.cookie = c + ';domain=' + CDOM;
+      if (!readCookie()) document.cookie = c;
+    } catch (e) { }
+    try { fr && fr.contentWindow && fr.contentWindow.postMessage({ nvtr: 1, type: 'setPrefs', prefs: prefs }, frOrigin); } catch (e) { }
+  }
   var loadedFonts = {};
   function loadFont(key) {
     var F = FONTS[key]; if (!F || !F.g || loadedFonts[key]) return; loadedFonts[key] = 1;
@@ -204,8 +301,6 @@
     '.tail{max-width:var(--mw);margin:0 auto;padding:28px var(--pad) calc(150px + env(safe-area-inset-bottom));text-align:center;color:var(--mut);font-size:14px}',
     '.btn{display:inline-flex;align-items:center;justify-content:center;min-height:50px;padding:0 24px;border-radius:16px;border:1px solid var(--bd);background:var(--card);font-size:15px;font-weight:600;margin-top:14px}',
     '.btn.pri{background:var(--ac);border-color:var(--ac);color:#fff}',
-    '.prog{position:fixed;top:0;left:0;right:0;height:3px;z-index:4;pointer-events:none}',
-    '.prog i{display:block;height:100%;width:0;background:var(--ac);border-radius:0 2px 2px 0}',
     '.top{position:fixed;top:0;left:0;right:0;z-index:3;padding:calc(13px + env(safe-area-inset-top)) 20px 12px;text-align:center;font-size:14px;font-weight:600;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;',
     'background:color-mix(in srgb,var(--bg) 84%,transparent);-webkit-backdrop-filter:saturate(1.8) blur(16px);backdrop-filter:saturate(1.8) blur(16px);border-bottom:1px solid color-mix(in srgb,var(--bd) 55%,transparent);transition:transform .3s cubic-bezier(.2,.8,.2,1)}',
     '.bar{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:3;display:flex;gap:4px;padding:5px;border-radius:999px;',
@@ -237,6 +332,10 @@
     '.pn .ctl button{width:50px;height:44px;border-radius:14px;border:1px solid var(--bd);font-size:22px;line-height:1}',
     '.pn .ctl b{min-width:66px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}',
     '.pn .wide{display:flex;width:100%;min-height:52px;align-items:center;justify-content:center;border-radius:16px;border:1px solid var(--bd);font-size:15px;margin-top:12px}',
+    '.pn .hint{font-size:13px;color:var(--mut);margin:6px 0 10px;line-height:1.55}',
+    '.pn .li{display:block;width:100%;text-align:left;padding:12px 4px;min-height:54px;border-bottom:1px solid color-mix(in srgb,var(--bd) 55%,transparent)}',
+    '.pn .li b{display:block;font-size:15px;font-weight:600;line-height:1.4}',
+    '.pn .li small{display:block;font-size:12px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}',
     '.toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translate(-50%,16px);z-index:8;background:rgba(28,28,30,.94);color:#fff;padding:12px 18px;border-radius:14px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:86vw;text-align:center}',
     '.toast.on{opacity:1;transform:translate(-50%,0)}',
     '@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}'
@@ -248,11 +347,11 @@
   var root = host.attachShadow({ mode: 'open' });
   root.innerHTML = '<style>' + css + '</style>' +
     '<div class="app"><div class="sc"><main class="wrap"></main><div class="tail"></div></div>' +
-    '<div class="prog"><i></i></div><header class="top"></header>' +
+    '<header class="top"></header>' +
     '<nav class="bar"><button data-act="prev">\u2039 \uc774\uc804</button><button class="aa" data-act="aa">Aa</button><button class="nx" data-act="next">\ub2e4\uc74c \ud654 \u203a</button></nav>' +
     '<div class="scrim" data-act="close"></div><div class="pn"></div><div class="toast"></div></div>';
   var $ = function (q) { return root.querySelector(q); };
-  var app = $('.app'), sc = $('.sc'), wrap = $('.wrap'), tail = $('.tail'), top = $('.top'), progI = $('.prog i'),
+  var app = $('.app'), sc = $('.sc'), wrap = $('.wrap'), tail = $('.tail'), top = $('.top'),
     pn = $('.pn'), toastEl = $('.toast'), prevBtn = $('[data-act=prev]');
 
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
@@ -271,7 +370,7 @@
     var mc = document.querySelector('meta[name=theme-color]');
     if (!mc) { mc = document.createElement('meta'); mc.name = 'theme-color'; document.head.appendChild(mc); }
     mc.content = t.bg;
-    if (pn.firstChild) syncPanel();
+    if (pn.dataset.mode === 'set') syncPanel();
   }
 
   // ---- \uc124\uc815 \uc2dc\ud2b8 ----
@@ -306,7 +405,21 @@
     pn.querySelector('[data-act=autoNext]').classList.toggle('sel', !!prefs.auto);
     STEPS.forEach(function (s) { pn.querySelector('b[data-k=' + s[0] + ']').textContent = s[5](prefs[s[0]]); });
   }
-  function openSheet() { if (!pn.firstChild) buildPanel(); syncPanel(); app.classList.add('sheet'); }
+  function openSheet() { if (pn.dataset.mode !== 'set') { buildPanel(); pn.dataset.mode = 'set'; } syncPanel(); app.classList.add('sheet'); }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var pickItem = null;
+  function openPicker(kind, item) {
+    pickItem = item; pn.dataset.mode = 'pick';
+    var nm = kind === 'next' ? '\ub2e4\uc74c \ud654' : '\uc774\uc804 \ud654';
+    var h = '<div class="grab"></div><div class="hd"><h3>' + nm + ' \ub9c1\ud06c \uace0\ub974\uae30</h3><button class="x" data-act="close">\u2715</button></div>' +
+      '<p class="hint">' + nm + ' \ub9c1\ud06c\ub97c \uc790\ub3d9\uc73c\ub85c \ubabb \ucc3e\uc558\uc5b4\uc694. \uc6d0\ubcf8 \ud398\uc774\uc9c0\uc5d0 \uc788\ub358 \ub9c1\ud06c \uc911\uc5d0\uc11c ' + nm + '\ub85c \uac00\ub294 \uac78 \ub20c\ub7ec\uc8fc\uc138\uc694. \ud55c \ubc88 \uace0\ub974\uba74 \uc774 \uc0ac\uc774\ud2b8\uc5d0\uc11c\ub294 \uae30\uc5b5\ud574\uc694.</p>';
+    var ls = item.ch.links || [];
+    if (!ls.length) h += '<p class="hint">\uc6d0\ubcf8 \ud398\uc774\uc9c0\uc5d0\uc11c \ub9c1\ud06c\ub97c \ud558\ub098\ub3c4 \ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694.</p>';
+    ls.forEach(function (c, i) {
+      h += '<button class="li" data-act="pickLink" data-k="' + kind + '" data-i="' + i + '"><b>' + esc(c.t.slice(0, 60)) + '</b><small>' + esc(c.u.replace(/^https?:\/\/[^\/]+/, '')) + '</small></button>';
+    });
+    pn.innerHTML = h; pn.scrollTop = 0; app.classList.add('sheet');
+  }
   function closeSheet() { app.classList.remove('sheet'); }
 
   // ---- \ud654 \ud45c\uc2dc ----
@@ -351,7 +464,10 @@
   function updateTail() {
     var L = lastItem(); tail.innerHTML = '';
     if (!L || !L.done) return;
-    if (!L.ch.next) { tail.appendChild(el('div', null, '\ub2e4\uc74c \ud654 \ub9c1\ud06c\ub97c \ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694. \ub9c8\uc9c0\ub9c9 \ud654\uc77c \uc218 \uc788\uc5b4\uc694.')); return; }
+    if (!L.ch.next) {
+      tail.appendChild(el('div', null, '\ub2e4\uc74c \ud654 \ub9c1\ud06c\ub97c \uc790\ub3d9\uc73c\ub85c \ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694.'));
+      var pb = el('button', 'btn pri', '\ub2e4\uc74c \ud654 \ub9c1\ud06c \uc9c1\uc811 \uace0\ub974\uae30'); pb.dataset.act = 'pick'; pb.dataset.k = 'next'; tail.appendChild(pb); return;
+    }
     if (appending) { tail.appendChild(el('div', 'st', '\ub2e4\uc74c \ud654 \ubd88\ub7ec\uc624\ub294 \uc911\u2026')); return; }
     if (L.nextErr) {
       tail.appendChild(el('div', 'er', '\ub2e4\uc74c \ud654\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc5b4\uc694: ' + L.nextErr));
@@ -367,6 +483,7 @@
     var nch = await L.nextP;
     appending = false;
     if (nch.err) { L.nextErr = nch.err.message; L.nextP = null; updateTail(); return null; }
+    if (chapters.some(function (c) { return c.ch.url === nch.url; })) { L.ch.next = null; updateTail(); toast('\ub2e4\uc74c \ud654 \ub9c1\ud06c\uac00 \uc774\ubbf8 \uc77d\uc740 \ud654\ub97c \uac00\ub9ac\ucf1c\uc694'); return null; }
     wrap.appendChild(el('div', 'sep', '\ub2e4\uc74c \ud654'));
     show(nch);
     return lastItem();
@@ -387,12 +504,9 @@
       ticking = false;
       var st = sc.scrollTop, vh = sc.clientHeight, i = curIndex(), it = chapters[i];
       if (it) {
-        var s = it.sec, p = (st - s.offsetTop + vh * 0.3) / Math.max(1, s.offsetHeight - vh * 0.7);
-        progI.style.width = Math.max(0, Math.min(1, p)) * 100 + '%';
         if (i !== curShown || top.textContent !== it.title) {
           curShown = i; top.textContent = it.title; document.title = it.title;
           try { history.replaceState(null, '', it.ch.url); } catch (e) { }
-          prevBtn.classList.toggle('off', i === 0 && !it.ch.prev);
         }
       }
       var d = st - lastTop;
@@ -400,10 +514,25 @@
       else if (d > 8 && st > 120 && Date.now() - progScroll > 1200 && !app.classList.contains('sheet')) app.classList.add('hide');
       else if (d < -8) app.classList.remove('hide');
       lastTop = st;
+      if (it) savePos(it, st);
       if (prefs.auto && st + vh > sc.scrollHeight - vh * 1.5) appendNext();
     });
   }
   sc.addEventListener('scroll', onScroll, { passive: true });
+
+  // ---- \uc77d\ub358 \uc704\uce58 \uae30\uc5b5 ----
+  var POS = 'nvtrPos', posT = 0, posReady = false;
+  function savePos(it, st) {
+    if (!posReady || Date.now() - posT < 800) return; posT = Date.now();
+    try { localStorage.setItem(POS, JSON.stringify({ u: it.ch.url, y: st - it.sec.offsetTop })); } catch (e) { }
+  }
+  function restorePos(item) {
+    try {
+      var p = JSON.parse(localStorage.getItem(POS) || 'null');
+      if (p && p.u === item.ch.url && p.y > 200) { progScroll = Date.now(); sc.scrollTop = item.sec.offsetTop + p.y; toast('\uc77d\ub358 \uc704\uce58\ub85c \ub3cc\uc544\uc654\uc5b4\uc694'); }
+    } catch (e) { }
+    posReady = true;
+  }
 
   // ---- \ub3d9\uc791 ----
   async function act(name, t) {
@@ -419,7 +548,7 @@
       var x = Math.round((prefs[S[0]] + S[2] * +t.dataset.d) * 100) / 100;
       prefs[S[0]] = Math.min(S[4], Math.max(S[3], x)); savePrefs(); applyPrefs(); return;
     }
-    if (name === 'reset') { prefs = JSON.parse(JSON.stringify(DEF)); savePrefs(); applyPrefs(); toast('\ubcf4\uae30 \uc124\uc815\uc744 \ucd08\uae30\ud654\ud588\uc5b4\uc694'); return; }
+    if (name === 'reset') { prefs = fill({}); savePrefs(); applyPrefs(); toast('\ubcf4\uae30 \uc124\uc815\uc744 \ucd08\uae30\ud654\ud588\uc5b4\uc694'); return; }
     if (name === 'api') { closeSheet(); fr.style.display = 'block'; fr.contentWindow.postMessage({ nvtr: 1, type: 'settings' }, frOrigin); return; }
     if (name === 'retry') {
       var it = t._item; delete pending[it.ch.url];
@@ -427,13 +556,21 @@
       var ph = el('div'); it.sec.replaceWith(ph);
       show(it.ch); wrap.replaceChild(lastItem().sec, ph); return;
     }
+    if (name === 'pick') { openPicker(t.dataset.k, lastItem()); return; }
+    if (name === 'pickLink') {
+      var k = t.dataset.k, c = pickItem.ch.links[+t.dataset.i];
+      learn(k, c.t); pickItem.ch[k] = c.u; closeSheet();
+      if (k === 'next') { pickItem.nextP = null; pickItem.nextErr = null; toast('\uae30\uc5b5\ud588\uc5b4\uc694. \ub2e4\uc74c \ud654\ub97c \ubd88\ub7ec\uc62c\uac8c\uc694'); var nn = await appendNext(); if (nn) scrollToItem(nn); }
+      else { toast('\uae30\uc5b5\ud588\uc5b4\uc694. \uc774\uc804 \ud654\ub97c \ubd88\ub7ec\uc62c\uac8c\uc694'); act('prev', t); }
+      return;
+    }
     if (name === 'nextRetry') { lastItem().nextP = null; appendNext(); return; }
     if (name === 'next') {
       var i = curIndex();
       if (chapters[i + 1]) { scrollToItem(chapters[i + 1]); return; }
       var L = lastItem();
       if (!L.done) { toast(L.failed ? '\uc774\ubc88 \ud654 \ubc88\uc5ed\uc774 \uc2e4\ud328\ud588\uc5b4\uc694. \ub2e4\uc2dc \uc2dc\ub3c4\ub97c \ub20c\ub7ec\uc8fc\uc138\uc694' : '\uc774\ubc88 \ud654\ub97c \uc544\uc9c1 \ubc88\uc5ed\ud558\uace0 \uc788\uc5b4\uc694'); return; }
-      if (!L.ch.next) { toast('\ub2e4\uc74c \ud654 \ub9c1\ud06c\ub97c \ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694'); return; }
+      if (!L.ch.next) { openPicker('next', L); return; }
       toast('\ub2e4\uc74c \ud654\ub97c \ubd88\ub7ec\uc624\uace0 \uc788\uc5b4\uc694');
       var n = await appendNext();
       if (n) scrollToItem(n);
@@ -443,7 +580,8 @@
       var j = curIndex();
       if (chapters[j - 1]) { scrollToItem(chapters[j - 1]); return; }
       var C0 = chapters[j];
-      if (!C0 || !C0.ch.prev) { toast('\uc774\uc804 \ud654 \ub9c1\ud06c\ub97c \ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694'); return; }
+      if (!C0) return;
+      if (!C0.ch.prev) { openPicker('prev', C0); return; }
       toast('\uc774\uc804 \ud654\ub97c \ubd88\ub7ec\uc624\uace0 \uc788\uc5b4\uc694');
       var pc = await prefetch(C0.ch.prev);
       if (pc.err) { toast('\uc774\uc804 \ud654\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc5b4\uc694'); return; }
@@ -502,5 +640,5 @@
 
   applyPrefs();
   try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if (prefs.theme === 'auto') applyPrefs(); }); } catch (e) { }
-  show(first);
+  show(first).then(function (it) { if (it && it.done) setTimeout(function () { restorePos(it); }, 50); else posReady = true; });
 })();
