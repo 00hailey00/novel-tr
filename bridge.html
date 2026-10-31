@@ -33,10 +33,10 @@ button.sec{background:var(--card);color:var(--fg);border:1px solid var(--bd)}
 <textarea id="sa" autocomplete="off" spellcheck="false"></textarea>
 <div class="h" id="saHint">콜로모에 넣던 JSON 텍스트를 그대로 붙여넣으세요.</div>
 <label for="m">모델 이름</label>
-<input id="m" value="gemini-2.5-flash" autocomplete="off">
+<input id="m" value="gemini-3.8-flash" autocomplete="off">
 <label for="loc">리전</label>
 <input id="loc" value="global" autocomplete="off">
-<div class="h">보통 global이면 돼요. 모델을 못 찾는다는 오류(404)가 나면 us-central1로 바꿔보세요.</div>
+<div class="h">보통 global 그대로 두면 돼요. 모델을 못 찾으면 다른 리전을 자동으로 시도해요.</div>
 <label for="fs">글자 크기 (px)</label>
 <input id="fs" type="number" value="18" min="12" max="30">
 <label for="g">용어집 (선택)</label>
@@ -53,6 +53,8 @@ button.sec{background:var(--card);color:var(--fg);border:1px solid var(--bd)}
   var $ = function (id) { return document.getElementById(id); };
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } }
   var C = load();
+  // 종료된 2.x 모델이 저장돼 있으면 자동 교체
+  if (C.m && /^gemini-[12]\./.test(C.m)) { C.m = 'gemini-3.8-flash'; try { localStorage.setItem(KEY, JSON.stringify(C)); } catch (e) { } }
   var P = window.parent;
   function send(m) { m.nvtr = 1; P.postMessage(m, '*'); } // 번역 결과만 보냄. 키는 절대 보내지 않음.
   function configured() { return !!(C.sa && C.sa.private_key); }
@@ -60,7 +62,7 @@ button.sec{background:var(--card);color:var(--fg);border:1px solid var(--bd)}
   // ---------- 설정 화면 ----------
   function showUI() {
     $('ui').hidden = false;
-    $('m').value = C.m || 'gemini-2.5-flash';
+    $('m').value = C.m || 'gemini-3.8-flash';
     $('loc').value = C.loc || 'global';
     $('fs').value = C.fs || 18;
     $('g').value = C.g || '';
@@ -82,7 +84,7 @@ button.sec{background:var(--card);color:var(--fg);border:1px solid var(--bd)}
   }
   $('save').onclick = function () {
     var n = {
-      sa: C.sa, m: $('m').value.trim() || 'gemini-2.5-flash', loc: $('loc').value.trim() || 'global',
+      sa: C.sa, m: $('m').value.trim() || 'gemini-3.8-flash', loc: $('loc').value.trim() || 'global',
       fs: parseInt($('fs').value, 10) || 18, g: $('g').value.trim()
     };
     var raw = $('sa').value.trim();
@@ -141,25 +143,41 @@ button.sec{background:var(--card);color:var(--fg);border:1px solid var(--bd)}
       '5) 입력이 "[제목]"으로 시작하는 줄이 있으면 그 줄은 "[제목] 번역된 제목" 형식으로 출력한다.' +
       (C.g ? '\n\n다음 용어집을 반드시 따른다:\n' + C.g : '');
   }
+  function urlFor(loc) {
+    var host = loc === 'global' ? 'aiplatform.googleapis.com'
+      : /^(us|eu)$/.test(loc) ? 'aiplatform.' + loc + '.rep.googleapis.com'
+      : loc + '-aiplatform.googleapis.com';
+    return 'https://' + host + '/v1/projects/' + encodeURIComponent(C.sa.project_id) + '/locations/' + encodeURIComponent(loc) +
+      '/publishers/google/models/' + encodeURIComponent(C.m) + ':generateContent';
+  }
   async function translate(text) {
     if (!configured()) throw new Error('설정이 안 되어 있어요. ⚙ 설정을 눌러주세요.');
-    var url = 'https://' + (C.loc === 'global' ? '' : C.loc + '-') + 'aiplatform.googleapis.com/v1/projects/' +
-      encodeURIComponent(C.sa.project_id) + '/locations/' + encodeURIComponent(C.loc) +
-      '/publishers/google/models/' + encodeURIComponent(C.m) + ':generateContent';
-    var body = JSON.stringify({
+    var req = {
       systemInstruction: { parts: [{ text: sys() }] },
       contents: [{ role: 'user', parts: [{ text: text }] }],
       generationConfig: { temperature: 0.3, maxOutputTokens: 30000 },
       safetySettings: ['HARM_CATEGORY_HARASSMENT', 'HARM_CATEGORY_HATE_SPEECH',
         'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'HARM_CATEGORY_DANGEROUS_CONTENT']
         .map(function (c) { return { category: c, threshold: 'BLOCK_ONLY_HIGH' }; })
-    });
+    };
+    if (C.noThink !== 1) req.generationConfig.thinkingConfig = { thinkingLevel: 'low' };
+    var locs = [C.loc || 'global', 'global', 'us', 'us-central1'].filter(function (v, i, a) { return a.indexOf(v) === i; }), li = 0;
     var last;
     for (var t = 0; t < 3; t++) {
       try {
         var tk = await token(t > 0 && last && /API 401/.test(last.message));
-        var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, body: body });
-        var j = await r.json();
+        var ac = new AbortController(), to = setTimeout(function () { ac.abort(); }, 180000);
+        var r, j;
+        try {
+          r = await fetch(urlFor(locs[li]), { method: 'POST', signal: ac.signal, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, body: JSON.stringify(req) });
+          j = await r.json();
+        } catch (x) { throw new Error(x.name === 'AbortError' ? '응답이 3분 넘게 없어요 (시간 초과)' : x.message); }
+        finally { clearTimeout(to); }
+        if (r.status === 400 && req.generationConfig.thinkingConfig && /think/i.test(JSON.stringify(j))) {
+          delete req.generationConfig.thinkingConfig; C.noThink = 1; try { localStorage.setItem(KEY, JSON.stringify(C)); } catch (e) { } t--; continue;
+        }
+        if (r.status === 404 && li < locs.length - 1) { li++; t--; continue; } // 다른 리전으로 재시도
+        if (r.ok && locs[li] !== C.loc) { C.loc = locs[li]; try { localStorage.setItem(KEY, JSON.stringify(C)); } catch (e) { } }
         if (!r.ok) throw new Error('API ' + r.status + ': ' + ((j.error && j.error.message) || JSON.stringify(j)).slice(0, 300));
         var cand = j.candidates && j.candidates[0];
         var out = cand && cand.content && cand.content.parts
@@ -168,7 +186,7 @@ button.sec{background:var(--card);color:var(--fg);border:1px solid var(--bd)}
         return out;
       } catch (e) {
         last = e;
-        if (/API 4(00|03|04)|토큰 발급/.test(e.message) || (/API 401/.test(e.message) && t > 0)) break;
+        if (/API 4(00|03|04)|토큰 발급|시간 초과/.test(e.message) || (/API 401/.test(e.message) && t > 0)) break;
         await new Promise(function (ok) { setTimeout(ok, 1500 * (t + 1)); });
       }
     }
