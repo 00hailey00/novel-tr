@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.2.5
+// @version      1.2.6
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -201,7 +201,9 @@
       '/publishers/google/models/' + encodeURIComponent(C.m) + ':generateContent';
   }
   function sleep(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
-  async function callApi(text, temp, sys) {
+  var SAFE = ['OFF', 'BLOCK_NONE', 'BLOCK_ONLY_HIGH'];
+  async function callApi(text, temp, sys, onStatus) {
+    var say = onStatus || function () { };
     var C = cfg();
     if (!C || !C.sa || !C.sa.private_key) throw new Error('\ubc88\uc5ed \uc124\uc815\uc774 \ud544\uc694\ud574\uc694. \uc544\ub798 "\ubc88\uc5ed \uc124\uc815 \uc5f4\uae30"\ub97c \ub20c\ub7ec \ucc98\uc74c \ud55c \ubc88\ub9cc \uc124\uc815\ud574 \uc8fc\uc138\uc694.');
     var req = {
@@ -210,7 +212,7 @@
       generationConfig: { temperature: typeof temp === 'number' ? temp : 0.3, maxOutputTokens: 30000 },
       safetySettings: ['HARM_CATEGORY_HARASSMENT', 'HARM_CATEGORY_HATE_SPEECH',
         'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'HARM_CATEGORY_DANGEROUS_CONTENT']
-        .map(function (c) { return { category: c, threshold: 'BLOCK_ONLY_HIGH' }; })
+        .map(function (c) { return { category: c, threshold: SAFE[C.safe || 0] }; })
     };
     if (!C.noThink) req.generationConfig.thinkingConfig = { thinkingLevel: 'low' };
     var locs = [C.loc || 'global', 'global', 'us', 'us-central1'].filter(function (v, i, a) { return a.indexOf(v) === i; }), li = 0;
@@ -218,12 +220,17 @@
     for (var t = 0; t < 4; t++) {
       try {
         var tk = await token(t > 0 && last && /API 401/.test(last.message));
+        say(t ? '\ub2e4\uc2dc \uc694\uccad\ud558\ub294 \uc911' : '\uc751\ub2f5 \uae30\ub2e4\ub9ac\ub294 \uc911');
         var r = await gxhr({ method: 'POST', url: urlFor(C, locs[li]), anonymous: true, timeout: 120000,
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, data: JSON.stringify(req) });
         var j; try { j = JSON.parse(r.responseText); } catch (e) { j = {}; }
         if (r.status === 404 && li < locs.length - 1) { li++; t--; continue; }
         if (r.status === 400 && req.generationConfig.thinkingConfig && /think/i.test(r.responseText || '')) {
           delete req.generationConfig.thinkingConfig; C.noThink = 1; gset('cfg', C); t--; continue;
+        }
+        if (r.status === 400 && (C.safe || 0) < SAFE.length - 1 && /threshold|safety|harm/i.test(r.responseText || '')) {
+          C.safe = (C.safe || 0) + 1; gset('cfg', C);
+          req.safetySettings.forEach(function (x) { x.threshold = SAFE[C.safe]; }); t--; continue;
         }
         if (r.status >= 200 && r.status < 300 && locs[li] !== C.loc) { C.loc = locs[li]; gset('cfg', C); }
         if (r.status < 200 || r.status >= 300) throw new Error('API ' + r.status + ': ' + ((j.error && j.error.message) || r.responseText || '').slice(0, 300));
@@ -236,7 +243,8 @@
       } catch (e) {
         last = e;
         if (/MAX_TOKENS|\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c|\ud1a0\ud070 \ubc1c\uae09|\uc124\uc815\uc774 \ud544\uc694/.test(e.message)) break;
-        if (/API (429|500|502|503|504)/.test(e.message) && t < 3) { await sleep(5000 * (t + 1)); continue; }
+        if (/API (429|500|502|503|504)/.test(e.message) && t < 3) { say(/429/.test(e.message) ? '\uc694\uccad\uc774 \ub9ce\uc544 \uc7a0\uc2dc \uae30\ub2e4\ub9ac\ub294 \uc911' : '\uc11c\ubc84 \uc624\ub958, \uc7a0\uc2dc \ub4a4 \ub2e4\uc2dc'); await sleep(5000 * (t + 1)); continue; }
+        if (/\uc2dc\uac04 \ucd08\uacfc/.test(e.message)) say('\uc751\ub2f5\uc774 \ub2a6\uc5b4 \ub2e4\uc2dc \uc694\uccad');
         if (/API 4(00|03|04)/.test(e.message) || (/\uc2dc\uac04 \ucd08\uacfc/.test(e.message) && t > 0) || (/API 401/.test(e.message) && t > 0)) break;
         await sleep(1500 * (t + 1));
       }
@@ -273,23 +281,24 @@
   // ===================== \ubc88\uc5ed =====================
   // \ub9c9\ud788\uac70\ub098(\uc548\uc804 \ud544\ud130) \uc798\ub9ac\uba74(\uae38\uc774 \ucd08\uacfc) \ubc18\uc73c\ub85c \ub098\ub220 \ub2e4\uc2dc \uc2dc\ub3c4, \ub05d\uae4c\uc9c0 \ub9c9\ud788\ub294 \ud55c \uc904\uc740 \uc6d0\ubb38\uc73c\ub85c \ud45c\uc2dc
   var BLOCKED = /SAFETY|PROHIBITED|BLOCKLIST|SPII|RECITATION|OTHER|MAX_TOKENS|\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c/i;
-  async function translateLines(ls, depth, temp) {
+  async function translateLines(ls, depth, temp, say) {
     try {
-      return (await callApi(ls.join('\n'), temp)).split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+      return (await callApi(ls.join('\n'), temp, null, say)).split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
     } catch (e) {
-      if (!BLOCKED.test(e.message) || depth > 6) throw e;
+      if (!BLOCKED.test(e.message) || depth > 4) throw e;
       if (ls.length === 1) return ['\u3014\ubc88\uc5ed \ucc28\ub2e8 \u2014 \uc6d0\ubb38\u3015 ' + ls[0]];
-      var h = Math.ceil(ls.length / 2);
-      var a1 = await translateLines(ls.slice(0, h), depth + 1, temp);
-      var a2 = await translateLines(ls.slice(h), depth + 1, temp);
-      return a1.concat(a2);
+      say && say('\ucc28\ub2e8\ub41c \ubd80\ubd84\uc744 \ub098\ub220\uc11c \ubc88\uc5ed\ud558\ub294 \uc911');
+      var n = Math.min(4, ls.length), size = Math.ceil(ls.length / n), parts = [];
+      for (var i = 0; i < ls.length; i += size) parts.push(ls.slice(i, i + size));
+      var res = await Promise.all(parts.map(function (p) { return translateLines(p, depth + 1, temp, say); }));
+      return [].concat.apply([], res);
     }
   }
   // \uc6d0\ubb38\uc744 \ub369\uc5b4\ub9ac\ub85c \ub098\ub214. \uccab \ub369\uc5b4\ub9ac\ub294 \uc9e7\uac8c(\ube68\ub9ac \ubcf4\uc5ec\uc8fc\ub824\uace0), \uccab \uc904\uc740 \uc81c\ubaa9
   function makeChunks(ch) {
     var src = ['[\uc81c\ubaa9] ' + ch.title].concat(ch.lines), chunks = [], cur = [], n = 0;
     src.forEach(function (l) {
-      if (n + l.length > (chunks.length ? 3000 : 900) && cur.length) { chunks.push(cur); cur = []; n = 0; }
+      if (n + l.length > (chunks.length ? 1600 : 800) && cur.length) { chunks.push(cur); cur = []; n = 0; }
       cur.push(l); n += l.length + 1;
     });
     if (cur.length) chunks.push(cur);
@@ -315,13 +324,21 @@
     var title = ch.title, outLines = [], parts = [];
     var temp = ch.retrans ? Math.min(1, 0.3 + 0.25 * ch.retrans) : undefined;
     if (ctl.title) title = ctl.title;
-    for (var i = 0; i < chunks.length; i++) {
-      if (ctl.cancel) throw new Error('\ucde8\uc18c\ub428');
-      var r = ctl.keep && ctl.keep[i] ? { lines: ctl.keep[i], title: title } : splitTitle(await translateLines(chunks[i], 0, temp), title);
-      if (ctl.cancel) throw new Error('\ucde8\uc18c\ub428');
-      title = r.title; outLines = outLines.concat(r.lines); parts.push(r.lines.length);
-      onPart && onPart(i, r.lines, title);
+    var res = new Array(chunks.length), nextI = 0;
+    var say = function (m) { ctl.status = m; ctl.onStatus && ctl.onStatus(m); };
+    async function worker() {
+      while (nextI < chunks.length) {
+        var i = nextI++;
+        if (ctl.cancel) throw new Error('\ucde8\uc18c\ub428');
+        var r = ctl.keep && ctl.keep[i] ? { lines: ctl.keep[i], title: title } : splitTitle(await translateLines(chunks[i], 0, temp, say), title);
+        if (ctl.cancel) throw new Error('\ucde8\uc18c\ub428');
+        if (i === 0) title = r.title;
+        res[i] = r.lines;
+        onPart && onPart(i, r.lines, title);
+      }
     }
+    await Promise.all([worker(), worker()]); // \ub450 \ub369\uc5b4\ub9ac\uc529 \ub3d9\uc2dc\uc5d0
+    res.forEach(function (ls) { outLines = outLines.concat(ls); parts.push(ls.length); });
     if (!outLines.length) throw new Error('\ubc88\uc5ed \uacb0\uacfc\uac00 \ube44\uc5b4 \uc788\uc5b4\uc694');
     var v = { title: title, lines: outLines, parts: parts };
     cachePut(ch.url, v);
@@ -597,7 +614,7 @@
     }
     // \uc544\ubb34 \ucc3d\ub3c4 \uc5c6\uc744 \ub54c: \uc2e4\uc218\ub85c \ubc88\uc5ed \ud654\uba74\uc744 \ub098\uac00\uc9c0 \uc54a\uac8c \ud55c \ubc88 \ub354 \ud655\uc778
     if (Date.now() - lastBack < 2000) { history.back(); return; }
-    lastBack = Date.now(); toast('\ud55c \ubc88 \ub354 \ub204\ub974\uba74 \ubc88\uc5ed \ud654\uba74\uc744 \ub098\uac00\uc694');
+    lastBack = Date.now(); toast('\ud55c \ubc88 \ub354 \ub204\ub974\uba74 \ub2eb\ud799\ub2c8\ub2e4');
     try { history.pushState({ nvB: 1 }, '', location.href); } catch (e) { }
   });
   try { history.pushState({ nvB: 1 }, '', location.href); } catch (e) { }
@@ -747,11 +764,12 @@
     var oi = old ? chapters.indexOf(old) : -1;
     if (oi >= 0) { old.sec.replaceWith(sec); chapters[oi] = item; } else { wrap.appendChild(sec); chapters.push(item); }
     var P = startTranslate(ch, keep, keepTitle), t0 = Date.now(), doneN = 0, total = grps.length, stuckShown = false;
+    P.ctl.onStatus = function () { };
     item.P = P;
     meta.innerHTML = '<span class="dot"></span><span>\ubc88\uc5ed \uc911</span>';
     var tm = setInterval(function () {
       if (!meta.isConnected) { clearInterval(tm); return; }
-      meta.children[1].textContent = '\ubc88\uc5ed \uc911 \u00b7 ' + doneN + '/' + total + ' \u00b7 ' + Math.round((Date.now() - t0) / 1000) + '\ucd08';
+      meta.children[1].textContent = '\ubc88\uc5ed \uc911 \u00b7 ' + doneN + '/' + total + ' \u00b7 ' + Math.round((Date.now() - t0) / 1000) + '\ucd08' + (P.ctl.status && P.ctl.status !== '\uc751\ub2f5 \uae30\ub2e4\ub9ac\ub294 \uc911' ? ' \u00b7 ' + P.ctl.status : '');
       // 45\ucd08 \ub118\uac8c \uc9c4\ud589\uc774 \uc5c6\uc73c\uba74 '\uc774\uc5b4\uc11c \ub2e4\uc2dc \uc2dc\ub3c4' \ubc84\ud2bc
       if (!stuckShown && Date.now() - (P.lastProg || t0) > 45000) {
         stuckShown = true;
