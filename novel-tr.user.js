@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.2.0
+// @version      1.2.1
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -403,8 +403,8 @@
     // \uc81c\ubaa9 \uc704\uacc4: \uc791\uc740 \ud654 \ubc88\ud638 + \ud070 \uc81c\ubaa9
     'section{padding-top:8px}',
     '.chl{font-family:var(--ui);font-size:13px;font-weight:600;color:var(--ac);letter-spacing:.04em;margin-bottom:10px}',
-    '.cht{font-size:calc(var(--fs) * 1.4);font-weight:700;line-height:1.35;letter-spacing:-.03em;margin-bottom:14px;word-break:keep-all}',
-    '.meta{font-family:var(--ui);font-size:12.5px;color:var(--mut);margin-bottom:34px;display:flex;align-items:center;gap:8px;min-height:20px}',
+    '.cht{font-size:calc(var(--fs) * 1.4);font-weight:700;line-height:1.35;letter-spacing:-.03em;margin-bottom:34px;word-break:keep-all}',
+    '.meta{font-family:var(--ui);font-size:12.5px;color:var(--mut);margin:-20px 0 30px;display:flex;align-items:center;gap:8px;min-height:20px}',
     '.meta .dot{width:7px;height:7px;border-radius:50%;background:var(--ac);animation:pl 1.2s ease-in-out infinite}',
     '@keyframes pl{50%{opacity:.25}}',
     // \ubcf8\ubb38
@@ -433,14 +433,6 @@
     '.ib:active,.nb:active,.btn:active,.pn button:active,.tile:active,.row:active{transform:scale(.95)}',
     '.bot{bottom:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent);transform:translateY(105%)}',
     '.app.ui .top,.app.ui .bot{transform:none}',
-    '.prog{display:flex;align-items:center;gap:12px;padding:2px 6px 8px;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}',
-    '.prog .pc{min-width:34px}.prog .rm{min-width:56px;text-align:right}',
-    '.sl{flex:1;-webkit-appearance:none;appearance:none;height:28px;background:transparent}',
-    '.sl::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(var(--ac),var(--ac)) 0/var(--p,0%) 100% no-repeat,var(--bd)}',
-    '.sl::-moz-range-track{height:4px;border-radius:2px;background:var(--bd)}',
-    '.sl::-moz-range-progress{height:4px;border-radius:2px;background:var(--ac)}',
-    '.sl::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--card);border:2px solid var(--ac);margin-top:-8px}',
-    '.sl::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--card);border:2px solid var(--ac)}',
     '.btns{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}',
     '.nb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:58px;border-radius:16px;font-size:11.5px;color:var(--mut);transition:transform .12s}',
     '.nb svg{width:24px;height:24px;color:var(--fg)}',
@@ -518,14 +510,14 @@
     '<div class="app"><div class="sc"><main class="wrap"></main><div class="tail"></div></div>' +
     '<header class="top"><button class="ib" data-act="lib" aria-label="\uc11c\uc7ac">' + I.lib + '</button><div class="tt"><b></b><span></span></div>' +
     '<button class="ib" data-act="toc" aria-label="\ubaa9\ucc28">' + I.toc + '</button></header>' +
-    '<div class="bot"><div class="prog"><span class="pc">0%</span><input class="sl" type="range" min="0" max="1000" value="0" aria-label="\uc774 \ud654\uc5d0\uc11c \uc704\uce58"><span class="rm"></span></div>' +
+    '<div class="bot">' +
     '<nav class="btns"><button class="nb" data-act="prev">' + I.prev + '\uc774\uc804 \ud654</button><button class="nb" data-act="toc">' + I.toc + '\ubaa9\ucc28</button>' +
     '<button class="nb" data-act="aa">' + I.aa + '\ubcf4\uae30</button><button class="nb nx" data-act="next">' + I.next + '\ub2e4\uc74c \ud654</button></nav></div>' +
     '<div class="pg"><div class="ph"><button class="ib" data-act="pgClose" aria-label="\ub2eb\uae30">' + I.back + '</button><h3></h3><button class="ed" data-act="libEdit">\ud3b8\uc9d1</button></div><div class="pb"></div></div>' +
     '<div class="scrim" data-act="close"></div><div class="pn"></div><div class="toast"></div></div>';
   var $ = function (q) { return root.querySelector(q); };
   var app = $('.app'), sc = $('.sc'), wrap = $('.wrap'), tail = $('.tail'), topB = $('.top b'), topS = $('.top span'),
-    pn = $('.pn'), toastEl = $('.toast'), sl = $('.sl'), pcEl = $('.pc'), rmEl = $('.rm'), pg = $('.pg'), pgT = $('.pg h3'), pgB = $('.pg .pb'), edBtn = $('.pg .ed');
+    pn = $('.pn'), toastEl = $('.toast'), pg = $('.pg'), pgT = $('.pg h3'), pgB = $('.pg .pb'), edBtn = $('.pg .ed');
 
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -688,8 +680,7 @@
     return P.done.then(function (v) {
       clearInterval(tm); item.v = v; item.done = true; setTitle(item, v.title);
       var k = 0; [].forEach.call(sec.querySelectorAll('p.tr'), function (p) { p._idx = k++; });
-      var chars = v.lines.join('').length;
-      meta.textContent = '\uc57d ' + Math.max(1, Math.round(chars / 550)) + '\ubd84 \u00b7 ' + chars.toLocaleString() + '\uc790';
+      meta.remove();
       var row = el('div', 'endrow'), rt = el('button', 'mini'); rt.innerHTML = I.redo + '\uc774 \ud654 \ub2e4\uc2dc \ubc88\uc5ed'; rt.dataset.act = 'retrans'; rt._item = item;
       row.appendChild(rt); sec.appendChild(row);
       if (ch.next) item.nextP = prefetch(ch.next);
@@ -845,23 +836,13 @@
   }
 
   // ===================== \uc2a4\ud06c\ub864: \uc9c4\ud589 \u00b7 \ud604\uc7ac \ud654 \u00b7 \uba54\ub274 \uc228\uae40 \u00b7 \uc790\ub3d9 \uc774\uc5b4 \uc77d\uae30 =====================
-  var lastTop = 0, ticking = false, curShown = -1, sliding = false;
-  function chProgress(it) {
-    var s = it.sec, vh = sc.clientHeight;
-    return Math.max(0, Math.min(1, (sc.scrollTop - s.offsetTop + vh * 0.25) / Math.max(1, s.offsetHeight - vh * 0.75)));
-  }
+  var lastTop = 0, ticking = false, curShown = -1;
   function onScroll() {
     if (ticking) return; ticking = true;
     requestAnimationFrame(function () {
       ticking = false;
       var st = sc.scrollTop, vh = sc.clientHeight, i = curIndex(), it = chapters[i];
       if (it) {
-        var p = chProgress(it);
-        if (!sliding) { sl.value = Math.round(p * 1000); }
-        sl.style.setProperty('--p', p * 100 + '%');
-        pcEl.textContent = Math.round(p * 100) + '%';
-        var chars = it.v ? it.v.lines.join('').length : 0;
-        rmEl.textContent = chars ? Math.max(0, Math.ceil(chars * (1 - p) / 550)) + '\ubd84 \ub0a8\uc74c' : '';
         if (i !== curShown || topS.textContent !== it.title) {
           curShown = i; document.title = it.title;
           try { history.replaceState(null, '', it.ch.url); } catch (e) { }
@@ -870,21 +851,12 @@
         savePos(it, st);
       }
       var d = st - lastTop;
-      if (Math.abs(d) > 6 && Date.now() - progScroll > 900 && !sliding && !app.classList.contains('sheet')) setUI(false);
+      if (Math.abs(d) > 6 && Date.now() - progScroll > 900 && !app.classList.contains('sheet')) setUI(false);
       lastTop = st;
       if (prefs.auto && st + vh > sc.scrollHeight - vh * 1.5) appendNext();
     });
   }
   sc.addEventListener('scroll', onScroll, { passive: true });
-  sl.addEventListener('input', function () {
-    sliding = true;
-    var it = chapters[curIndex()]; if (!it) return;
-    var vh = sc.clientHeight, f = sl.value / 1000;
-    progScroll = Date.now();
-    sc.scrollTop = it.sec.offsetTop - vh * 0.25 + f * Math.max(1, it.sec.offsetHeight - vh * 0.75);
-    sl.style.setProperty('--p', f * 100 + '%');
-  });
-  sl.addEventListener('change', function () { sliding = false; });
 
   // ---- \uc77d\ub358 \uc704\uce58 \uae30\uc5b5 ----
   var POS = 'nvtrPos', posT = 0, posReady = false;
