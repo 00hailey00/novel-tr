@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.2.4
+// @version      1.2.5
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -567,7 +567,42 @@
   var toastT;
   function toast(t) { toastEl.textContent = t; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(function () { toastEl.classList.remove('on'); }, 2200); }
   function buzz() { try { navigator.vibrate && navigator.vibrate(8); } catch (e) { } }
-  function setUI(on) { app.classList.toggle('ui', on); }
+  // ---- \ub4a4\ub85c \uac00\uae30: \uc5f4\ub9b0 \ucc3d\uc744 \uc704\uc5d0\uc11c\ubd80\ud130 \ud558\ub098\uc529 \ub2eb\uc74c ----
+  // layers: \uc9c0\uae08 \uc5f4\ub9b0 \uce35(\uc544\ub798\u2192\uc704). \uce35\uc774 \ud558\ub098\ub77c\ub3c4 \uc788\uc73c\uba74 \uae30\ub85d(history)\uc5d0 '\uce35' \uce78\uc744 \ud558\ub098 \ub460
+  var layers = [], hasEntry = false, skipPop = 0, lastBack = 0;
+  var RAW = {
+    ui: function () { app.classList.remove('ui'); },
+    page: function () { app.classList.remove('page'); },
+    sheet: function () { app.classList.remove('sheet'); if (holdP) holdP.classList.remove('hold'); }
+  };
+  function pushLayer(n) {
+    if (layers.indexOf(n) < 0) layers.push(n);
+    if (!hasEntry) { try { history.pushState({ nvL: 1 }, '', location.href); hasEntry = true; } catch (e) { } }
+  }
+  function dropLayer(n) {
+    var i = layers.indexOf(n);
+    if (i < 0) { RAW[n](); return; }
+    layers.splice(i).reverse().forEach(function (x) { RAW[x](); });
+    if (!layers.length && hasEntry) setTimeout(function () {
+      if (!layers.length && hasEntry) { hasEntry = false; skipPop++; history.back(); }
+    }, 60);
+  }
+  window.addEventListener('popstate', function () {
+    if (skipPop > 0) { skipPop--; return; }
+    if (hasEntry) {
+      hasEntry = false;
+      if (layers.length) RAW[layers.pop()]();
+      if (layers.length) { try { history.pushState({ nvL: 1 }, '', location.href); hasEntry = true; } catch (e) { } }
+      return;
+    }
+    // \uc544\ubb34 \ucc3d\ub3c4 \uc5c6\uc744 \ub54c: \uc2e4\uc218\ub85c \ubc88\uc5ed \ud654\uba74\uc744 \ub098\uac00\uc9c0 \uc54a\uac8c \ud55c \ubc88 \ub354 \ud655\uc778
+    if (Date.now() - lastBack < 2000) { history.back(); return; }
+    lastBack = Date.now(); toast('\ud55c \ubc88 \ub354 \ub204\ub974\uba74 \ubc88\uc5ed \ud654\uba74\uc744 \ub098\uac00\uc694');
+    try { history.pushState({ nvB: 1 }, '', location.href); } catch (e) { }
+  });
+  try { history.pushState({ nvB: 1 }, '', location.href); } catch (e) { }
+  function setUI(on) { if (on) { app.classList.add('ui'); pushLayer('ui'); } else dropLayer('ui'); }
+  function showSheet() { app.classList.add('sheet'); pushLayer('sheet'); }
 
   function applyPrefs() {
     var t = THEMES[prefs.theme] || (matchMedia('(prefers-color-scheme: dark)').matches ? THEMES.dark : THEMES.light);
@@ -617,8 +652,8 @@
     pn.querySelector('[data-act=autoNext]').classList.toggle('sel', !!prefs.auto);
     STEPS.forEach(function (s) { pn.querySelector('b[data-k=' + s[0] + ']').textContent = s[5](prefs[s[0]]); });
   }
-  function openSheet() { buildPanel(); pn.dataset.mode = 'set'; syncPanel(); pn.scrollTop = 0; app.classList.add('sheet'); }
-  function closeSheet() { app.classList.remove('sheet'); if (holdP) { holdP.classList.remove('hold'); } }
+  function openSheet() { buildPanel(); pn.dataset.mode = 'set'; syncPanel(); pn.scrollTop = 0; showSheet(); }
+  function closeSheet() { dropLayer('sheet'); }
 
   // ===================== \uc2dc\ud2b8: \ub9c1\ud06c \uace0\ub974\uae30 =====================
   var pickItem = null;
@@ -632,7 +667,7 @@
     ls.forEach(function (c, i) {
       h += '<button class="li" data-act="pickLink" data-k="' + kind + '" data-i="' + i + '"><b>' + esc(c.t.slice(0, 60)) + '</b><small>' + esc(c.u.replace(/^https?:\/\/[^\/]+/, '')) + '</small></button>';
     });
-    pn.innerHTML = h; pn.scrollTop = 0; app.classList.add('sheet');
+    pn.innerHTML = h; pn.scrollTop = 0; showSheet();
   }
 
   // ===================== \uc2dc\ud2b8: \ubb38\ub2e8 =====================
@@ -645,7 +680,7 @@
     if (it && it.done && !p.classList.contains('src')) h += '<button class="wide pri" data-act="paraRetr">' + I.redo + '\uc774 \ubb38\ub2e8\ub9cc \ub2e4\uc2dc \ubc88\uc5ed</button>';
     if (hist) h += '<button class="wide" data-act="paraUndo">' + I.undo + '\uc774\uc804 \ubc88\uc5ed\uc73c\ub85c \ub418\ub3cc\ub9ac\uae30</button>';
     h += '<button class="wide" data-act="paraCopy">' + I.copy + '\ubcf5\uc0ac</button>';
-    pn.innerHTML = h; pn.scrollTop = 0; app.classList.add('sheet');
+    pn.innerHTML = h; pn.scrollTop = 0; showSheet();
   }
   function itemOf(node) { for (var i = 0; i < chapters.length; i++) if (chapters[i].sec.contains(node)) return chapters[i]; return null; }
   function setPara(it, p, text) {
@@ -825,8 +860,8 @@
     if (d < 86400 * 30) return Math.floor(d / 86400) + '\uc77c \uc804'; return new Date(ts).toLocaleDateString();
   }
   var pageMode = '';
-  function openPage(mode, title) { pageMode = mode; pgT.textContent = title; pg.classList.remove('edit'); edBtn.style.display = mode === 'lib' ? '' : 'none'; edBtn.textContent = '\ud3b8\uc9d1'; app.classList.add('page'); setUI(false); }
-  function closePage() { app.classList.remove('page'); }
+  function openPage(mode, title) { pageMode = mode; pgT.textContent = title; pg.classList.remove('edit'); edBtn.style.display = mode === 'lib' ? '' : 'none'; edBtn.textContent = '\ud3b8\uc9d1'; dropLayer('ui'); dropLayer('sheet'); app.classList.add('page'); pushLayer('page'); }
+  function closePage() { dropLayer('page'); }
   function renderLib() {
     openPage('lib', '\ub0b4 \uc11c\uc7ac');
     var ws = Object.keys(libAll()).map(function (k) { return libAll()[k]; }).sort(function (a, b) { return b.ts - a.ts; });
