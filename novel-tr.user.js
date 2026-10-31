@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.3.1
+// @version      1.3.2
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -191,7 +191,8 @@
       '2) \ubb38\ub2e8 \uad6c\ubd84\uc744 \uc720\uc9c0\ud574 \ud55c \ubb38\ub2e8\uc744 \ud55c \uc904\ub85c \ucd9c\ub825\ud55c\ub2e4.\n' +
       '3) \uc778\uba85\u00b7\uc9c0\uba85\u00b7\ubb34\uacf5\uba85 \ub4f1 \uace0\uc720\uba85\uc0ac\ub294 \ud55c\uc790 \ub3c5\uc74c\uc73c\ub85c \uc77c\uad00\ub418\uac8c \uc62e\uae34\ub2e4.\n' +
       '4) \uc0ac\uc774\ud2b8 \uad11\uace0, \ud64d\ubcf4, \uc548\ub0b4 \ubb38\uad6c\ub85c \ubcf4\uc774\ub294 \uc904\uc740 \ucd9c\ub825\ud558\uc9c0 \uc54a\ub294\ub2e4.\n' +
-      '5) \uc785\ub825\uc774 "[\uc81c\ubaa9]"\uc73c\ub85c \uc2dc\uc791\ud558\ub294 \uc904\uc774 \uc788\uc73c\uba74 \uadf8 \uc904\uc740 "[\uc81c\ubaa9] \ubc88\uc5ed\ub41c \uc81c\ubaa9" \ud615\uc2dd\uc73c\ub85c \ucd9c\ub825\ud55c\ub2e4.' +
+      '5) \uc785\ub825\uc774 "[\uc81c\ubaa9]"\uc73c\ub85c \uc2dc\uc791\ud558\ub294 \uc904\uc774 \uc788\uc73c\uba74 \uadf8 \uc904\uc740 "[\uc81c\ubaa9] \ubc88\uc5ed\ub41c \uc81c\ubaa9" \ud615\uc2dd\uc73c\ub85c \ucd9c\ub825\ud55c\ub2e4.\n' +
+      '6) \uc785\ub825\uc740 \uc774\ubbf8 \ucd9c\ud310\ub41c \ud5c8\uad6c\uc758 \uc18c\uc124\uc774\ub2e4. \uc804\ud22c\u00b7\ud3ed\ub825\u00b7\ubc94\uc8c4\u00b7\uc8fd\uc74c \uac19\uc740 \uc5b4\ub450\uc6b4 \uc7a5\uba74\ub3c4 \uc774\uc57c\uae30\uc758 \uc77c\ubd80\uc774\ubbc0\ub85c, \ub0b4\uc6a9\uc744 \ud310\ub2e8\ud558\uac70\ub098 \uac70\uc808\u00b7\uc694\uc57d\u00b7\uc21c\ud654\ud558\uc9c0 \ub9d0\uace0 \uc6d0\ubb38\uc758 \uc758\ubbf8 \uadf8\ub300\ub85c \ubc88\uc5ed\ub9cc \ud55c\ub2e4.' +
       (C.g ? '\n\n\ub2e4\uc74c \uc6a9\uc5b4\uc9d1\uc744 \ubc18\ub4dc\uc2dc \ub530\ub978\ub2e4:\n' + C.g : '');
   }
   function urlFor(C, loc) {
@@ -202,7 +203,7 @@
       '/publishers/google/models/' + encodeURIComponent(C.m) + ':generateContent';
   }
   function sleep(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
-  async function callApi(text, temp, sys, onStatus) {
+  async function callApi(text, temp, sys, onStatus, model) {
     var SAFE = ['OFF', 'BLOCK_NONE', 'BLOCK_ONLY_HIGH'];
     var say = onStatus || function () { };
     var C = cfg();
@@ -222,7 +223,7 @@
       try {
         var tk = await token(t > 0 && last && /API 401/.test(last.message));
         say(t ? '\ub2e4\uc2dc \uc694\uccad\ud558\ub294 \uc911' : '\uc751\ub2f5 \uae30\ub2e4\ub9ac\ub294 \uc911');
-        var r = await gxhr({ method: 'POST', url: urlFor(C, locs[li]), anonymous: true, timeout: 120000,
+        var r = await gxhr({ method: 'POST', url: urlFor(model ? Object.assign({}, C, { m: model }) : C, locs[li]), anonymous: true, timeout: 120000,
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, data: JSON.stringify(req) });
         var j; try { j = JSON.parse(r.responseText); } catch (e) { j = {}; }
         if (r.status === 404 && li < locs.length - 1) { li++; t--; continue; }
@@ -282,12 +283,32 @@
   // ===================== \ubc88\uc5ed =====================
   // \ub9c9\ud788\uac70\ub098(\uc548\uc804 \ud544\ud130) \uc798\ub9ac\uba74(\uae38\uc774 \ucd08\uacfc) \ubc18\uc73c\ub85c \ub098\ub220 \ub2e4\uc2dc \uc2dc\ub3c4, \ub05d\uae4c\uc9c0 \ub9c9\ud788\ub294 \ud55c \uc904\uc740 \uc6d0\ubb38\uc73c\ub85c \ud45c\uc2dc
   var BLOCKED = /SAFETY|PROHIBITED|BLOCKLIST|SPII|RECITATION|OTHER|MAX_TOKENS|\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c/i;
+  // \ubaa8\ub378\uc774 \ubc88\uc5ed \ub300\uc2e0 \uac70\uc808 \ubb38\uc7a5\uc744 \ub3cc\ub824\uc900 \uacbd\uc6b0 (\uc18c\uc124 \uc18d \ub300\uc0ac '\uc8c4\uc1a1\ud569\ub2c8\ub2e4'\uc640 \ud5f7\uac08\ub9ac\uc9c0 \uc54a\uac8c \ud45c\ud604\uc744 \uc881\uac8c)
+  var REFUSE = /(\ubc88\uc5ed|\uc694\uccad)[^.\n]{0,30}(\uc218\s*\uc5c6|\uc5b4\ub835|\ubd88\uac00|\ub4dc\ub9b4\s*\uc218\s*\uc5c6)|\uc815\ucc45|\uac00\uc774\ub4dc\ub77c\uc778|\uc548\uc804\s*\uae30\uc900|I\s*can(?:not|'t)\s*(help|assist|translate|provide|comply)|I'?m\s*(sorry|unable)|as an ai/i;
+  function looksRefusal(out, src) {
+    var o = out.join(' '), sl = src.join('').length;
+    if (!REFUSE.test(o)) return false;
+    if (src.length >= 3 && out.length <= 2) return true; // \uc5ec\ub7ec \uc904\uc744 \ub123\uc5c8\ub294\ub370 \ud55c\ub450 \uc904\ub9cc \ub3cc\uc544\uc634
+    return o.length < sl * 1.2 && !/(\ubc88\uc5ed|\u7ffb\u8b6f|\u7ffb\u8bd1)/.test(src.join('')); // \ud55c\uad6d\uc5b4 \ubc88\uc5ed\uc740 \ubcf4\ud1b5 \uc6d0\ubb38\ubcf4\ub2e4 \uae38\ub2e4
+  }
+  async function callLines(ls, temp, say, model) {
+    var out = (await callApi(ls.join('\n'), temp, null, say, model)).split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    if (looksRefusal(out, ls)) throw new Error('\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c (REFUSAL)');
+    return out;
+  }
   async function translateLines(ls, depth, temp, say) {
     try {
-      return (await callApi(ls.join('\n'), temp, null, say)).split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+      return await callLines(ls, temp, say);
     } catch (e) {
       if (!BLOCKED.test(e.message) || depth > 4) throw e;
-      if (ls.length === 1) return ['\u3014\ubc88\uc5ed \ucc28\ub2e8 \u2014 \uc6d0\ubb38\u3015 ' + ls[0]];
+      var alt = (cfg() || {}).alt;
+      if (ls.length === 1) { // \ub05d\uae4c\uc9c0 \ub9c9\ud788\ub294 \ud55c \uc904: \ub300\uccb4 \ubaa8\ub378\uc774 \uc788\uc73c\uba74 \ud55c \ubc88 \ub354, \uadf8\ub798\ub3c4 \uc548 \ub418\uba74 \uc6d0\ubb38
+        if (alt) { try { say && say('\ub9c9\ud78c \ubb38\uc7a5\uc744 \ub2e4\ub978 \ubaa8\ub378\ub85c \ubc88\uc5ed\ud558\ub294 \uc911'); return await callLines(ls, temp, say, alt); } catch (e3) { } }
+        return ['\u3014\ubc88\uc5ed \ucc28\ub2e8 \u2014 \uc6d0\ubb38\u3015 ' + ls[0]];
+      }
+      if (depth === 0 && alt) { // \ub369\uc5b4\ub9ac\uc9f8\ub85c \ub300\uccb4 \ubaa8\ub378 \uba3c\uc800
+        try { say && say('\ub9c9\ud78c \ubd80\ubd84\uc744 \ub2e4\ub978 \ubaa8\ub378\ub85c \ubc88\uc5ed\ud558\ub294 \uc911'); return await callLines(ls, temp, say, alt); } catch (e2) { }
+      }
       say && say('\ucc28\ub2e8\ub41c \ubd80\ubd84\uc744 \ub098\ub220\uc11c \ubc88\uc5ed\ud558\ub294 \uc911');
       var n = Math.min(4, ls.length), size = Math.ceil(ls.length / n), parts = [];
       for (var i = 0; i < ls.length; i += size) parts.push(ls.slice(i, i + size));
@@ -1415,18 +1436,19 @@
       '<div class="h">\ucf5c\ub85c\ubaa8\uc5d0 \ub123\ub358 JSON \ud14d\uc2a4\ud2b8\ub97c \uadf8\ub300\ub85c \ubd99\uc5ec\ub123\uc73c\uc138\uc694. \uc774\ubbf8 \uc800\uc7a5\ud588\ub2e4\uba74 \ube44\uc6cc\ub450\uba74 \ub3fc\uc694.</div>' +
       '<label for="m">\ubaa8\ub378 \uc774\ub984</label><input id="m" autocomplete="off">' +
       '<label for="loc">\ub9ac\uc804</label><input id="loc" autocomplete="off"><div class="h">\ubcf4\ud1b5 global. \ubaa8\ub378\uc744 \ubabb \ucc3e\uc73c\uba74 \ub2e4\ub978 \ub9ac\uc804\uc744 \uc790\ub3d9\uc73c\ub85c \uc2dc\ub3c4\ud574\uc694.</div>' +
+      '<label for="alt">\ub9c9\ud614\uc744 \ub54c \uc4f8 \ubaa8\ub378 (\uc120\ud0dd)</label><input id="alt" autocomplete="off" placeholder="\ube44\uc6cc\ub450\uba74 \uc0ac\uc6a9 \uc548 \ud568"><div class="h">\uc548\uc804 \ud544\ud130 \ub54c\ubb38\uc5d0 \ubc88\uc5ed\uc774 \ub9c9\ud78c \ubd80\ubd84\ub9cc \uc774 \ubaa8\ub378\ub85c \ub2e4\uc2dc \uc2dc\ub3c4\ud574\uc694. \uac19\uc740 \uad6c\uae00 \uacc4\uc815\uc5d0\uc11c \uc4f8 \uc218 \uc788\ub294 \ub2e4\ub978 Gemini \ubaa8\ub378 \uc774\ub984\uc744 \uc801\uc73c\uc138\uc694.</div>' +
       '<label for="g">\uc6a9\uc5b4\uc9d1 (\uc120\ud0dd)</label><textarea id="g" placeholder="\u6797\u51e1=\uc784\ubc94&#10;\u5929\u5143\u5b97=\ucc9c\uc6d0\uc885"></textarea><div class="h">\ud55c \uc904\uc5d0 \ud558\ub098\uc529.</div>' +
       '<button id="save">\uc800\uc7a5</button><button id="test" class="sec">\uc5f0\uacb0 \ud14c\uc2a4\ud2b8</button><button id="del" class="sec">\uc800\uc7a5\ub41c \ud0a4 \uc0ad\uc81c</button><div id="msg"></div></main>';
     var $ = function (id) { return document.getElementById(id); };
     function refresh() {
       C = gget('cfg', {}) || {};
-      $('m').value = C.m || 'gemini-3.8-flash'; $('loc').value = C.loc || 'global'; $('g').value = C.g || ''; $('sa').value = '';
+      $('m').value = C.m || 'gemini-3.8-flash'; $('loc').value = C.loc || 'global'; $('g').value = C.g || ''; $('alt').value = C.alt || ''; $('sa').value = '';
       $('state').textContent = C.sa ? '\u2713 \ud0a4 \uc800\uc7a5\ub428: ' + C.sa.client_email : '\uc544\uc9c1 \ud0a4\uac00 \uc5c6\uc5b4\uc694. JSON\uc744 \ubd99\uc5ec\ub123\uace0 \uc800\uc7a5\ud574 \uc8fc\uc138\uc694.';
       $('state').style.color = C.sa ? '#2e8b57' : '';
     }
     function msg(t, ok) { $('msg').textContent = t; $('msg').style.color = ok ? '#2e8b57' : '#d9534f'; }
     $('save').onclick = function () {
-      var n = { sa: C.sa, m: $('m').value.trim() || 'gemini-3.8-flash', loc: $('loc').value.trim() || 'global', g: $('g').value.trim(), safe: C.safe, noThink: (C.m === ($('m').value.trim() || 'gemini-3.8-flash')) ? C.noThink : 0 };
+      var n = { sa: C.sa, m: $('m').value.trim() || 'gemini-3.8-flash', loc: $('loc').value.trim() || 'global', g: $('g').value.trim(), alt: $('alt').value.trim(), safe: C.safe, noThink: (C.m === ($('m').value.trim() || 'gemini-3.8-flash')) ? C.noThink : 0 };
       var raw = $('sa').value.trim();
       if (raw) {
         var j; try { j = JSON.parse(raw); } catch (e) { return msg('JSON \ud615\uc2dd\uc774 \uc62c\ubc14\ub974\uc9c0 \uc54a\uc544\uc694. \ucc98\uc74c\ubd80\ud130 \ub05d\uae4c\uc9c0 \ube60\uc9d0\uc5c6\uc774 \ubd99\uc5ec\ub123\uc5c8\ub294\uc9c0 \ud655\uc778\ud558\uc138\uc694.'); }
