@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.3.6
+// @version      1.3.7
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -19,7 +19,7 @@
 // @downloadURL  https://00hailey00.github.io/novel-tr/novel-tr.user.js
 // @updateURL    https://00hailey00.github.io/novel-tr/novel-tr.user.js
 // ==/UserScript==
-(function () {
+(async function () {
   'use strict';
   var READER = 'nvtrReader';
   var SETTINGS_URL = 'https://00hailey00.github.io/novel-tr/settings.html';
@@ -75,9 +75,11 @@
   function hanLen(t) { var m = t.match(/[\u3400-\u9fff]/g); return m ? m.length : 0; }
   // \ubcf8\ubb38 \ucc3e\uae30: \u2460 \ud754\ud55c \ubcf8\ubb38 id/class \u2461 \uae00\uc790(\ud55c\uc790) \uc218 \uc810\uc218 \u2014 \uae00\uc774 \uc9c1\uc811 \ub2f4\uae34 \uc694\uc18c\uc5d0 \uc804\ubd80, \uadf8 \uc704 \ub2e8\uacc4\uc5d0 \uc808\ubc18\u00b74\ubd84\uc758 1\uc744 \ub354\ud574 \uac00\uc7a5 \ub192\uc740 \uacf3
   function findBody(doc) {
+    var selHit = null;
     for (var i = 0; i < SEL.length; i++) {
       var e = doc.querySelector(SEL[i]);
       if (e && hanLen(e.textContent) > 150 && own(e) > 100) return e;
+      if (e && !selHit && hanLen(e.textContent) > 15) selHit = e;
     }
     if (!doc.body) return null;
     var score = new Map(), tw = doc.createTreeWalker(doc.body, 4 /* SHOW_TEXT */), n, cnt = 0;
@@ -91,19 +93,30 @@
     }
     var best = null, bs = 0;
     score.forEach(function (v, k) { if (v > bs) { bs = v; best = k; } });
+    if (selHit && (!best || bs < 300 || selHit.contains(best) || best.contains(selHit))) return selHit; // \uc9e7\uc740 \ud654: \ud754\ud55c \ubcf8\ubb38 \uc0c1\uc790 \uc6b0\uc120
     if (best && bs > 80) return best;
     var b = 0, all = doc.body.querySelectorAll('div,article,section,td,dd');
     for (var j = 0; j < all.length; j++) { var v = own(all[j]); if (v > b) { b = v; best = all[j]; } }
     return best;
   }
   function lines(el) {
+    // \uc2e4\uc81c \ud654\uba74\uc5d0\uc11c \uc228\uaca8\uc9c4 \uc694\uc18c\ub294 \ube7c\uace0 \ubcf5\uc0ac (\uc0ac\uc774\ud2b8\uac00 \ub07c\uc6cc \ub123\uc740 \uac00\uc9dc \uae00\uc790 \ubc29\uc9c0)
+    var win = el.ownerDocument && el.ownerDocument.defaultView, hid = [];
+    if (win && win.getComputedStyle) {
+      [].forEach.call(el.querySelectorAll('*'), function (x) {
+        try { var cs = win.getComputedStyle(x); if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.fontSize) === 0) hid.push(x); } catch (e) { }
+      });
+    }
+    hid.forEach(function (x) { x.setAttribute('data-nvhid', '1'); });
     var c = el.cloneNode(true);
+    hid.forEach(function (x) { x.removeAttribute('data-nvhid'); });
+    c.querySelectorAll('[data-nvhid],[hidden],[style*="display:none"],[style*="display: none"],[style*="visibility:hidden"],[style*="font-size:0"]').forEach(function (x) { x.remove(); });
     c.querySelectorAll('script,style,a,button,ins,iframe,noscript,h1').forEach(function (x) { x.remove(); });
     c.querySelectorAll('br').forEach(function (x) { x.replaceWith('\n'); });
     c.querySelectorAll('p,div').forEach(function (x) { x.append('\n'); });
     return c.textContent.split(/\n+/).map(function (s) {
-      return s.replace(/^[\s\u3000\u00a0]+|[\s\u3000\u00a0]+$/g, '');
-    }).filter(Boolean);
+      return s.replace(/[\u200b-\u200f\u2060\ufeff\u00ad]/g, '').replace(/^[\s\u3000\u00a0]+|[\s\u3000\u00a0]+$/g, '');
+    }).filter(function (s) { return /[^\s\p{P}\p{S}]/u.test(s); });
   }
   function titleOf(doc) {
     var h = doc.querySelector('h1') || doc.querySelector('.bookname h1, .title, h2');
@@ -462,6 +475,14 @@
 
   // ===================== \uccab \ud654 =====================
   var first;
+  if (VIA_HASH) { // \uc6d0\ubcf8 \ud398\uc774\uc9c0\ub97c \uc9c1\uc811 \uc5f0 \uacbd\uc6b0: \ubcf8\ubb38\uc744 \uc2a4\ud06c\ub9bd\ud2b8\ub85c \ub2a6\uac8c \uadf8\ub9ac\ub294 \uc0ac\uc774\ud2b8\ub97c \uc704\ud574 \uc7a0\uc2dc \uae30\ub2e4\ub9bc
+    var w0 = Date.now();
+    while (Date.now() - w0 < 8000) {
+      var bb = null; try { bb = findBody(document); } catch (e) { }
+      if (bb && hanLen(bb.textContent) > 40) break;
+      await new Promise(function (ok) { setTimeout(ok, 400); });
+    }
+  }
   try {
     first = chapterFull(document, location.href);
     if (!VIA_HASH && hanCount(first.lines.join('')) < 200) throw new Error('not novel');
@@ -845,6 +866,8 @@
     return n / lines.length > 0.5;
   }
   async function prefetch(url, limit, asNext) {
+    if (asNext && chapters.some(function (c) { return ckey(c.ch.url) === ckey(url) || (c.ch.toc && ckey(c.ch.toc) === ckey(url)); }))
+      return { err: new Error('\ub9c8\uc9c0\ub9c9 \ud654\uc778 \uac83 \uac19\uc544\uc694'), last: true }; // \ub2e4\uc74c \ud654 \ub9c1\ud06c\uac00 \uc9c0\uae08 \ud654\ub098 \ubaa9\ucc28\ub97c \uac00\ub9ac\ud0b4
     try {
       var ch = null, err = null;
       try { ch = chapterFull(await getDoc(url), url); } catch (e) { err = e; }
@@ -946,7 +969,8 @@
       clearInterval(tm);
       if (/\ucde8\uc18c\ub428/.test(e.message)) return item; // \uc0c8 \ubc88\uc5ed\uc73c\ub85c \ubc14\ub01c
       item.failed = true; meta.textContent = '';
-      var er = el('div', 'er', '\ubc88\uc5ed \uc2e4\ud328: ' + e.message); sec.insertBefore(er, sec.querySelector('.grp'));
+      var diag = /\ube44\uc5b4 \uc788\uc5b4\uc694/.test(e.message) ? ' (\ucc3e\uc740 \uc6d0\ubb38 ' + ch.lines.length + '\uc904: "' + ch.lines.join(' ').slice(0, 40) + '\u2026")' : '';
+      var er = el('div', 'er', '\ubc88\uc5ed \uc2e4\ud328: ' + e.message + diag); sec.insertBefore(er, sec.querySelector('.grp'));
       var row = el('div', 'endrow');
       var rb = el('button', 'btn pri', '\ub2e4\uc2dc \uc2dc\ub3c4'); rb.dataset.act = 'retry'; rb._item = item; row.appendChild(rb);
       if (/\uc124\uc815|\ud1a0\ud070|API 40[134]/.test(e.message)) { var sb = el('button', 'btn', '\ubc88\uc5ed \uc124\uc815 \uc5f4\uae30'); sb.dataset.act = 'api'; row.appendChild(sb); }
