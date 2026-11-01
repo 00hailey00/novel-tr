@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.3.9
+// @version      1.4.0
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -79,7 +79,7 @@
     for (var i = 0; i < SEL.length; i++) {
       var e = doc.querySelector(SEL[i]);
       if (e && hanLen(e.textContent) > 150 && own(e) > 100) return e;
-      if (e && !selHit && hanLen(e.textContent) > 15) selHit = e;
+      if (e && !selHit && hanLen(e.textContent) >= 4) selHit = e;
     }
     if (!doc.body) return null;
     var score = new Map(), tw = doc.createTreeWalker(doc.body, 4 /* SHOW_TEXT */), n, cnt = 0;
@@ -492,7 +492,7 @@
     var w0 = Date.now();
     while (Date.now() - w0 < 8000) {
       var bb = null; try { bb = findBody(document); } catch (e) { }
-      if (bb && hanLen(bb.textContent) > 40) break;
+      if (bb && (hanLen(bb.textContent) > 40 || (Date.now() - w0 > 2500 && hanLen(bb.textContent) >= 4))) break;
       await new Promise(function (ok) { setTimeout(ok, 400); });
     }
   }
@@ -841,7 +841,11 @@
         var ready = d && d.readyState !== 'loading' && d.location && d.location.href !== 'about:blank';
         if (ready) {
           var ok = false;
-          try { var b = findBody(d); ok = b && hanLen(b.textContent) > 150 && (findLink(d, url, 'next', linkCands(d, url)) || Date.now() - t0 > 3000); } catch (e) { }
+          try {
+            var b = findBody(d), hl = b ? hanLen(b.textContent) : 0, el2 = Date.now() - t0, nx = hl ? findLink(d, url, 'next', linkCands(d, url)) : null;
+            // \uc9e7\uc740 \ud654(\ud55c\ub450 \ubb38\uc7a5)\ub3c4 \ub108\ubb34 \uc624\ub798 \uae30\ub2e4\ub9ac\uc9c0 \uc54a\uac8c: \ub2e4 \ubd88\ub7ec\uc628 \ub4a4 \uc7a0\uae50\ub9cc \ub354 \ubcf4\uace0 \ub118\uc5b4\uac10
+            ok = hl > 150 ? (nx || el2 > 3000) : hl >= 4 && d.readyState === 'complete' && (nx ? el2 > 2500 : el2 > 6000);
+          } catch (e) { }
           if (ok) return end(snap());
         }
         if (Date.now() - t0 > 15000) end(ready ? snap() : null);
@@ -892,7 +896,9 @@
           else { ch.next = ch.next || ch2.next; ch.prev = ch.prev || ch2.prev; ch.links = ch2.links.length > ch.links.length ? ch2.links : ch.links; ch.toc = ch.toc || ch2.toc; }
         } catch (e2) { if (!ch) throw err || e2; }
       }
-      if (hanLen(ch.lines.join('')) < 30 && ch.lines.join('').length < 60) {
+      // \ud55c\ub450 \ubb38\uc7a5\ubfd0\uc778 \uc9e7\uc740 \ud654(\ub098\ub220\uc9c4 \ud398\uc774\uc9c0\uc758 \ub05d \ub4f1)\ub294 \uc815\uc0c1. \uc774\uc804/\ub2e4\uc74c \ud654 \ub9c1\ud06c\ub3c4 \uc5c6\uc774 \uae00\uc774 \uac70\uc758 \uc5c6\uc744 \ub54c\ub9cc \ub9c9\ud78c \ud398\uc774\uc9c0\ub85c \ubd04
+      var hl = hanLen(ch.lines.join(''));
+      if (hl < 4 || (hl < 30 && ch.lines.join('').length < 60 && !ch.next && !ch.prev)) {
         var ee = new Error('\ubcf8\ubb38\uc744 \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc5b4\uc694. \uc0ac\uc774\ud2b8\uac00 \uc7a0\uc2dc \ub9c9\uc558\uac70\ub098 \uc778\uc99d \ud654\uba74\uc774 \ub5b4\uc744 \uc218 \uc788\uc5b4\uc694'); ee.empty = true; throw ee;
       }
       if (!ch.next) { var g = guessUrl(url, 'next'); if (g) { ch.next = g; ch.guessed = 1; } }
