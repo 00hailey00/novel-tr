@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.3.8
+// @version      1.3.9
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -218,7 +218,7 @@
   function sleep(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
   function whyShort(e) {
     var m = (e && e.message) || '';
-    if (/\uc2dc\uac04 \ucd08\uacfc/.test(m)) return '\uc751\ub2f5\uc774 2\ubd84 \ub118\uac8c \uc5c6\uc74c';
+    if (/\uc2dc\uac04 \ucd08\uacfc/.test(m)) return '\uc751\ub2f5\uc774 \ub108\ubb34 \ub2a6\uc74c';
     if (/\ub124\ud2b8\uc6cc\ud06c/.test(m)) return '\uc778\ud130\ub137 \uc5f0\uacb0 \ub04a\uae40';
     if (/API 429/.test(m)) return '\uc694\uccad\uc774 \ub108\ubb34 \ub9ce\uc74c';
     if (/API 5\d\d/.test(m)) return '\uad6c\uae00 \uc11c\ubc84 \uc624\ub958 ' + (m.match(/API (5\d\d)/) || [])[1];
@@ -239,19 +239,22 @@
         'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'HARM_CATEGORY_DANGEROUS_CONTENT']
         .map(function (c) { return { category: c, threshold: SAFE[C.safe || 0] }; })
     };
-    if (!C.noThink) req.generationConfig.thinkingConfig = { thinkingLevel: 'low' };
+    var THINK = ['minimal', 'low'];
+    if (!C.noThink) req.generationConfig.thinkingConfig = { thinkingLevel: THINK[C.thinkIdx || 0] || 'low' };
     var locs = [C.loc || 'global', 'global', 'us', 'us-central1'].filter(function (v, i, a) { return a.indexOf(v) === i; }), li = 0;
     var last;
     for (var t = 0; t < 4; t++) {
       try {
         var tk = await token(t > 0 && last && /API 401/.test(last.message));
         say(t ? '\ub2e4\uc2dc \uc694\uccad\ud558\ub294 \uc911 (' + whyShort(last) + ')' : '\uc751\ub2f5 \uae30\ub2e4\ub9ac\ub294 \uc911');
-        var r = await gxhr({ method: 'POST', url: urlFor(model ? Object.assign({}, C, { m: model }) : C, locs[li]), anonymous: true, timeout: 120000,
+        var r = await gxhr({ method: 'POST', url: urlFor(model ? Object.assign({}, C, { m: model }) : C, locs[li]), anonymous: true, timeout: t === 0 ? 60000 : 120000,
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, data: JSON.stringify(req) });
         var j; try { j = JSON.parse(r.responseText); } catch (e) { j = {}; }
         if (r.status === 404 && li < locs.length - 1) { li++; t--; continue; }
         if (r.status === 400 && req.generationConfig.thinkingConfig && /think/i.test(r.responseText || '')) {
-          delete req.generationConfig.thinkingConfig; C.noThink = 1; gset('cfg', C); t--; continue;
+          if ((C.thinkIdx || 0) < THINK.length - 1) { C.thinkIdx = (C.thinkIdx || 0) + 1; req.generationConfig.thinkingConfig = { thinkingLevel: THINK[C.thinkIdx] }; }
+          else { delete req.generationConfig.thinkingConfig; C.noThink = 1; }
+          gset('cfg', C); t--; continue;
         }
         if (r.status === 400 && (C.safe || 0) < SAFE.length - 1 && /threshold|safety|harm/i.test(r.responseText || '')) {
           C.safe = (C.safe || 0) + 1; gset('cfg', C);
@@ -370,7 +373,7 @@
     var temp = ch.retrans ? Math.min(1, 0.3 + 0.25 * ch.retrans) : undefined;
     if (ctl.title) title = ctl.title;
     var res = new Array(chunks.length), nextI = 0;
-    var say = function (m) { ctl.status = m; ctl.onStatus && ctl.onStatus(m); };
+    var say = function (m) { ctl.status = m; ctl.statusTs = Date.now(); ctl.onStatus && ctl.onStatus(m); };
     var failed = false;
     function lim() { return ctl.limit == null ? chunks.length : Math.min(chunks.length, ctl.limit); }
     async function worker() {
@@ -944,7 +947,7 @@
     meta.innerHTML = '<span class="dot"></span><span>\ubc88\uc5ed \uc911</span>';
     var tm = setInterval(function () {
       if (!meta.isConnected) { clearInterval(tm); return; }
-      meta.children[1].textContent = '\ubc88\uc5ed \uc911 \u00b7 ' + doneN + '/' + total + ' \u00b7 ' + Math.round((Date.now() - t0) / 1000) + '\ucd08' + (P.ctl.status && P.ctl.status !== '\uc751\ub2f5 \uae30\ub2e4\ub9ac\ub294 \uc911' ? ' \u00b7 ' + P.ctl.status : '');
+      meta.children[1].textContent = '\ubc88\uc5ed \uc911 \u00b7 ' + doneN + '/' + total + ' \u00b7 ' + Math.round((Date.now() - t0) / 1000) + '\ucd08' + (P.ctl.status === '\uc751\ub2f5 \uae30\ub2e4\ub9ac\ub294 \uc911' ? (Date.now() - P.ctl.statusTs > 15000 ? ' \u00b7 \uad6c\uae00 \uc751\ub2f5 \uae30\ub2e4\ub9ac\ub294 \uc911 (' + Math.round((Date.now() - P.ctl.statusTs) / 1000) + '\ucd08\uc9f8)' : '') : P.ctl.status ? ' \u00b7 ' + P.ctl.status : '');
       // 45\ucd08 \ub118\uac8c \uc9c4\ud589\uc774 \uc5c6\uc73c\uba74 '\uc774\uc5b4\uc11c \ub2e4\uc2dc \uc2dc\ub3c4' \ubc84\ud2bc
       if (!stuckShown && Date.now() - Math.max(P.lastProg || 0, t0) > 45000) {
         stuckShown = true;
