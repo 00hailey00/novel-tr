@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.3.7
+// @version      1.3.8
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -216,6 +216,16 @@
       '/publishers/google/models/' + encodeURIComponent(C.m) + ':generateContent';
   }
   function sleep(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
+  function whyShort(e) {
+    var m = (e && e.message) || '';
+    if (/\uc2dc\uac04 \ucd08\uacfc/.test(m)) return '\uc751\ub2f5\uc774 2\ubd84 \ub118\uac8c \uc5c6\uc74c';
+    if (/\ub124\ud2b8\uc6cc\ud06c/.test(m)) return '\uc778\ud130\ub137 \uc5f0\uacb0 \ub04a\uae40';
+    if (/API 429/.test(m)) return '\uc694\uccad\uc774 \ub108\ubb34 \ub9ce\uc74c';
+    if (/API 5\d\d/.test(m)) return '\uad6c\uae00 \uc11c\ubc84 \uc624\ub958 ' + (m.match(/API (5\d\d)/) || [])[1];
+    if (/API 401/.test(m)) return '\ub85c\uadf8\uc778 \ub9cc\ub8cc, \ub2e4\uc2dc \uc778\uc99d';
+    if (/API \d+/.test(m)) return m.slice(0, 40);
+    return m.slice(0, 30) || '\uc54c \uc218 \uc5c6\uc74c';
+  }
   async function callApi(text, temp, sys, onStatus, model) {
     var SAFE = ['OFF', 'BLOCK_NONE', 'BLOCK_ONLY_HIGH'];
     var say = onStatus || function () { };
@@ -235,7 +245,7 @@
     for (var t = 0; t < 4; t++) {
       try {
         var tk = await token(t > 0 && last && /API 401/.test(last.message));
-        say(t ? '\ub2e4\uc2dc \uc694\uccad\ud558\ub294 \uc911' : '\uc751\ub2f5 \uae30\ub2e4\ub9ac\ub294 \uc911');
+        say(t ? '\ub2e4\uc2dc \uc694\uccad\ud558\ub294 \uc911 (' + whyShort(last) + ')' : '\uc751\ub2f5 \uae30\ub2e4\ub9ac\ub294 \uc911');
         var r = await gxhr({ method: 'POST', url: urlFor(model ? Object.assign({}, C, { m: model }) : C, locs[li]), anonymous: true, timeout: 120000,
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, data: JSON.stringify(req) });
         var j; try { j = JSON.parse(r.responseText); } catch (e) { j = {}; }
@@ -258,7 +268,7 @@
       } catch (e) {
         last = e;
         if (/MAX_TOKENS|\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c|\ud1a0\ud070 \ubc1c\uae09|\uc124\uc815\uc774 \ud544\uc694/.test(e.message)) break;
-        if (/API (429|500|502|503|504)/.test(e.message) && t < 3) { say(/429/.test(e.message) ? '\uc694\uccad\uc774 \ub9ce\uc544 \uc7a0\uc2dc \uae30\ub2e4\ub9ac\ub294 \uc911' : '\uc11c\ubc84 \uc624\ub958, \uc7a0\uc2dc \ub4a4 \ub2e4\uc2dc'); await sleep(5000 * (t + 1)); continue; }
+        if (/API (429|500|502|503|504)/.test(e.message) && t < 3) { say(/429/.test(e.message) ? '\uad6c\uae00\uc5d0 \uc694\uccad\uc774 \ubab0\ub824 \uc7a0\uc2dc \uae30\ub2e4\ub9ac\ub294 \uc911' : whyShort(e) + ', \uc7a0\uc2dc \ub4a4 \ub2e4\uc2dc'); await sleep(5000 * (t + 1)); continue; }
         if (/\uc2dc\uac04 \ucd08\uacfc/.test(e.message)) say('\uc751\ub2f5\uc774 \ub2a6\uc5b4 \ub2e4\uc2dc \uc694\uccad');
         if (/API 4(00|03|04)/.test(e.message) || (/\uc2dc\uac04 \ucd08\uacfc/.test(e.message) && t > 0) || (/API 401/.test(e.message) && t > 0)) break;
         await sleep(1500 * (t + 1));
@@ -936,7 +946,7 @@
       if (!meta.isConnected) { clearInterval(tm); return; }
       meta.children[1].textContent = '\ubc88\uc5ed \uc911 \u00b7 ' + doneN + '/' + total + ' \u00b7 ' + Math.round((Date.now() - t0) / 1000) + '\ucd08' + (P.ctl.status && P.ctl.status !== '\uc751\ub2f5 \uae30\ub2e4\ub9ac\ub294 \uc911' ? ' \u00b7 ' + P.ctl.status : '');
       // 45\ucd08 \ub118\uac8c \uc9c4\ud589\uc774 \uc5c6\uc73c\uba74 '\uc774\uc5b4\uc11c \ub2e4\uc2dc \uc2dc\ub3c4' \ubc84\ud2bc
-      if (!stuckShown && Date.now() - (P.lastProg || t0) > 45000) {
+      if (!stuckShown && Date.now() - Math.max(P.lastProg || 0, t0) > 45000) {
         stuckShown = true;
         var b = el('button', 'mini', '\uba48\ucd98 \uac83 \uac19\uc544\uc694 \u00b7 \uc774\uc5b4\uc11c \ub2e4\uc2dc \uc2dc\ub3c4'); b.dataset.act = 'resume'; b._item = item; b.style.marginLeft = '6px'; meta.appendChild(b);
       }
