@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.4.4
+// @version      1.4.5
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -32,11 +32,14 @@
     return new Promise(function (res, rej) {
       var x = {};
       for (var k in o) x[k] = o[k];
-      x.onload = res;
-      x.onerror = function () { rej(new Error('\ub124\ud2b8\uc6cc\ud06c \uc624\ub958')); };
-      x.ontimeout = function () { rej(new Error('\uc751\ub2f5\uc774 \ub108\ubb34 \uc624\ub798 \uac78\ub824\uc694 (\uc2dc\uac04 \ucd08\uacfc)')); };
-      x.onabort = function () { rej(new Error('\uc694\uccad\uc774 \ucde8\uc18c\ub410\uc5b4\uc694')); };
-      GM_xmlhttpRequest(x);
+      // \ud3f0\uc774 \uc7a0\ub4e4\uac70\ub098 \ud0ed\uc774 \ub4a4\ub85c \uac00\uba74 \uc694\uccad\uc774 \uc18c\ub9ac \uc5c6\uc774 \uc0ac\ub77c\uc838 \uc2dc\uac04 \ucd08\uacfc \uc54c\ub9bc\uc870\ucc28 \uc548 \uc62c \ub54c\uac00 \uc788\uc5b4\uc11c, \ub530\ub85c \uc2dc\uacc4\ub97c \ub460
+      var done = false, h = null, wd = setTimeout(function () { fin(rej, new Error('\uc751\ub2f5\uc774 \ub108\ubb34 \uc624\ub798 \uac78\ub824\uc694 (\uc2dc\uac04 \ucd08\uacfc)')); try { h && h.abort && h.abort(); } catch (e) { } }, (o.timeout || 60000) + 10000);
+      function fin(f, v) { if (done) return; done = true; clearTimeout(wd); f(v); }
+      x.onload = function (r) { fin(res, r); };
+      x.onerror = function () { fin(rej, new Error('\ub124\ud2b8\uc6cc\ud06c \uc624\ub958')); };
+      x.ontimeout = function () { fin(rej, new Error('\uc751\ub2f5\uc774 \ub108\ubb34 \uc624\ub798 \uac78\ub824\uc694 (\uc2dc\uac04 \ucd08\uacfc)')); };
+      x.onabort = function () { fin(rej, new Error('\uc694\uccad\uc774 \ucde8\uc18c\ub410\uc5b4\uc694')); };
+      try { h = GM_xmlhttpRequest(x); } catch (e) { fin(rej, e); }
     });
   }
   var PW = window.wrappedJSObject || window; // \ud398\uc774\uc9c0 \ucabd window (\uad11\uace0 \ud0c0\uc774\uba38\u00b7\ud31d\uc5c5 \uc815\ub9ac\uc6a9)
@@ -822,7 +825,7 @@
   // ===================== \ud654 \ud45c\uc2dc =====================
   var pending = {}, chapters = [], appending = false;
   function startTranslate(ch, keep, title, limit) {
-    if (!pending[ch.url]) pending[ch.url] = { ch: ch, parts: {}, title: null, done: null, subs: [], ctl: { keep: keep, title: title, limit: limit } };
+    if (!pending[ch.url]) pending[ch.url] = { ch: ch, parts: {}, title: null, done: null, subs: [], ctl: { keep: keep, title: title, limit: limit }, t0: Date.now() };
     var P = pending[ch.url];
     if (!P.done) {
       P.done = translate(ch, function (ci, ls, t) { P.title = t; P.parts[ci] = ls; P.lastProg = Date.now(); P.subs.forEach(function (f) { f(ci, ls, t); }); }, P.ctl);
@@ -985,6 +988,11 @@
       if (!stuckShown && Date.now() - Math.max(P.lastProg || 0, t0) > 45000) {
         stuckShown = true;
         var b = el('button', 'mini', '\uba48\ucd98 \uac83 \uac19\uc544\uc694 \u00b7 \uc774\uc5b4\uc11c \ub2e4\uc2dc \uc2dc\ub3c4'); b.dataset.act = 'resume'; b._item = item; b.style.marginLeft = '6px'; meta.appendChild(b);
+      }
+      // 3\ubd84 \ub118\uac8c \uc544\ubb34 \uc9c4\ud589\uc774 \uc5c6\uc73c\uba74 \uc54c\uc544\uc11c \uc774\uc5b4\uc11c \ub2e4\uc2dc \uc2dc\ub3c4 (\ud654\uba74\uc744 \ubcf4\uace0 \uc788\uc744 \ub54c, \ucd5c\ub300 2\ubc88)
+      if (Date.now() - Math.max(P.lastProg || 0, t0) > 180000 && document.visibilityState === 'visible' && (item.autoR || 0) < 2) {
+        clearInterval(tm); var n = (item.autoR || 0) + 1; toast('\ubc88\uc5ed\uc774 \uba48\ucdb0\uc11c \uc774\uc5b4\uc11c \ub2e4\uc2dc \uc2dc\ub3c4\ud560\uac8c\uc694');
+        restartTranslate(item).then(null, function () { }); var ni = chapters.find(function (c) { return c.ch.url === item.ch.url; }); if (ni) ni.autoR = n;
       }
     }, 1000);
     var gi = {};
@@ -1594,6 +1602,8 @@
     var p = gget(PK, null); if (p && (p.ts || 0) > (prefs.ts || 0)) { prefs = fill(p); applyPrefs(); }
     chapters.forEach(function (it) {
       if (it.failed && /\uc124\uc815|\ud1a0\ud070/.test(it.sec.textContent) && cfg()) { delete pending[it.ch.url]; show(it.ch, it); }
+      // \ud654\uba74\uc774 \uaebc\uc84c\ub2e4 \ucf1c\uc9c4 \uacbd\uc6b0: 2\ubd84 \ub118\uac8c \uc9c4\ud589\uc774 \uc5c6\ub358 \ubc88\uc5ed\uc740 \ubc14\ub85c \uc774\uc5b4\uc11c \ub2e4\uc2dc \uc2dc\ub3c4
+      else if (!it.done && !it.failed && it.P && Date.now() - Math.max(it.P.lastProg || 0, it.P.t0 || 0) > 120000) restartTranslate(it);
     });
   });
   applyPrefs();
