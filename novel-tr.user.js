@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.4.1
+// @version      1.4.2
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -1146,7 +1146,7 @@
     // \u2460 \ubaa9\ucc28 \uc21c\uc11c\ub300\ub85c \u2461 \ubaa9\ucc28\uc5d0 \uc5c6\ub294(\ub610\ub294 \ubaa9\ucc28\ub97c \ubabb \ucc3e\uc740) \ud654\ub294 \ud654 \ubc88\ud638 \uc21c\uc73c\ub85c \ub4a4\uc5d0
     if (w.toc) {
       var list = tocMem[w.toc];
-      if (!list) { try { list = parseToc(await getDoc(w.toc), w.toc, (w.last && w.last.url) || w.toc); tocMem[w.toc] = list; } catch (e) { list = []; } }
+      if (!list) { try { list = await loadToc(w.toc, (w.last && w.last.url) || w.toc); tocMem[w.toc] = list; } catch (e) { list = []; } }
       list.forEach(function (c) { var k = ckey(c.u); if (I[k] && !seen[k]) { keys.push(k); seen[k] = 1; } });
     }
     var read = w.read || {};
@@ -1199,7 +1199,7 @@
 
   // ===================== \ubaa9\ucc28 =====================
   var tocMem = {};
-  function parseToc(doc, tocUrl, chUrl) {
+  function parseToc(doc, tocUrl, chUrl, raw) {
     var dir = workId(chUrl), seen = {}, out = [];
     var CHRX = /\u7b2c\s*[\d\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\u767e\u5343\u96f6\u3007\u4e24]+\s*[\u7ae0\u56de\u8282\u7bc0\u8bdd\u8a71]|^\s*\d+[\.\u3001\s]/;
     var as = [].slice.call(doc.querySelectorAll('a[href]'));
@@ -1208,12 +1208,63 @@
       as.forEach(function (a) {
         var u; try { u = new URL(a.getAttribute('href'), tocUrl).href.replace(/#.*$/, ''); } catch (e) { return; }
         var t = a.textContent.replace(/\s+/g, ' ').trim();
-        if (!t || seen[u] || u === tocUrl || !test(u, t)) return; seen[u] = 1; out.push({ u: u, t: t });
+        if (!t || seen[u] || u === tocUrl || isPageLink(u, t, tocUrl) || !test(u, t)) return; seen[u] = 1; out.push({ u: u, t: t });
       });
     }
     take(function (u) { return u.indexOf(dir) === 0 && /\.(s?html?|php)$|\/\d+\/?$/.test(u); });
     if (out.length < 5) take(function (u, t) { return CHRX.test(t); });
-    return sortToc(out);
+    return raw ? out : sortToc(out);
+  }
+  // \ubaa9\ucc28\uac00 \uc5ec\ub7ec \ucabd\uc73c\ub85c \ub098\ub25c \uc0ac\uc774\ud2b8: \ucabd \ub9c1\ud06c(1 2 3 / \u4e0b\u4e00\u9801 / 1-100\u7ae0 / \uc120\ud0dd \uc0c1\uc790)\ub97c \ub530\ub77c\uac00 \uc804\ubd80 \ubaa8\uc74c
+  var PAGE_T = /^\s*(\d{1,3}|\u4e0b\u4e00?[\u9801\u9875]|[\u5c3e\u672b][\u9801\u9875]|\u6700[\u5f8c\u540e]\u4e00?[\u9801\u9875]|next|\u203a|\u00bb|>>?|\u7b2c\s*\d+\s*[\u9801\u9875]|\d+\s*[-~\uff5e\u2014\u2013]\s*\d+\s*[\u7ae0\u56de\u8282\u7bc0\u8bdd\u8a71]?)\s*$/i;
+  var FULL_T = /(\u5b8c\u6574|\u5168\u90e8|\u6240\u6709|\u5168\u672c)\s*(\u76ee[\u9304\u5f55]|\u7ae0[\u7bc0\u8282]|\u5217\u8868)|\u67e5\u770b(\u5168\u90e8|\u66f4\u591a|\u5b8c\u6574)|\u66f4\u591a\u7ae0[\u7bc0\u8282]|\u7ae0[\u7bc0\u8282]\u76ee[\u9304\u5f55]|\u9ede\u64ca\u67e5\u770b|\u70b9\u51fb\u67e5\u770b/;
+  var PAGE_W = /^\s*(\u4e0b\u4e00?[\u9801\u9875]|[\u4e0a\u524d\u9996\u5c3e\u672b]\u4e00?[\u9801\u9875]|\u6700[\u5f8c\u540e]\u4e00?[\u9801\u9875]|next|prev|\u203a|\u00bb|\u2039|\u00ab|<<?|>>?)\s*$/i;
+  function pgShape(u) { return String(u).replace(/#.*$/, '').replace(/[_\-]?\d+/g, '').replace(/\/(index)?(\.\w+)?$/, ''); }
+  // \ubaa9\ucc28\uc758 \ucabd \ub118\uae40 \ub9c1\ud06c\uc778\uc9c0 (\uc22b\uc790\ub9cc \uc788\ub294 \ub9c1\ud06c\ub294 \uc8fc\uc18c \ubaa8\uc591\uc774 \ubaa9\ucc28\uc640 \uac19\uc744 \ub54c\ub9cc \u2014 \ud654 \uc81c\ubaa9\uc774 '011'\ucc98\ub7fc \uc22b\uc790\ubfd0\uc778 \uc0ac\uc774\ud2b8\ub3c4 \uc788\uc5b4\uc11c)
+  function isPageLink(u, t, tocUrl) {
+    if (PAGE_W.test(t)) return true;
+    if (!PAGE_T.test(t)) return false;
+    return pgShape(u) === pgShape(tocUrl) || /[?&](page|p|pn|pageno|pageindex)=\d+/i.test(u);
+  }
+  function tocPages(doc, base, chSet) {
+    var out = [], h = hostOf(base);
+    function add(u) {
+      try { u = new URL(u, base).href.replace(/#.*$/, ''); } catch (e) { return; }
+      if (hostOf(u) !== h || chSet[u] || out.indexOf(u) >= 0 || u === base) return;
+      out.push(u);
+    }
+    [].forEach.call(doc.querySelectorAll('select option[value]'), function (o) {
+      var v = o.getAttribute('value'); if (v && /[\/.?=]/.test(v) && /\d/.test(o.textContent + v)) add(v);
+    });
+    [].forEach.call(doc.querySelectorAll('a[href]'), function (a) {
+      var t = a.textContent.replace(/\s+/g, ' ').trim(), hr = a.getAttribute('href');
+      if (!hr || /^\s*(javascript:|#)/i.test(hr)) return;
+      var au; try { au = new URL(hr, base).href; } catch (e) { return; }
+      if (isPageLink(au, t, base) && !/^\s*([\u4e0a\u524d\u9996]|prev|\u2039|\u00ab|<)/i.test(t)) add(hr);
+    });
+    return out;
+  }
+  async function loadToc(tocUrl, chUrl, onProg) {
+    var doc = await getDoc(tocUrl), base = tocUrl;
+    var fl = [].filter.call(doc.querySelectorAll('a[href]'), function (a) { return FULL_T.test(a.textContent) && a.textContent.length < 20; })[0];
+    if (fl) { try { var fu = new URL(fl.getAttribute('href'), tocUrl).href; if (fu.split('#')[0] !== tocUrl.split('#')[0]) { doc = await getDoc(fu); base = fu; } } catch (e) { } }
+    var all = [], seen = {};
+    function addList(d, u) { parseToc(d, u, chUrl, true).forEach(function (c) { if (!seen[c.u]) { seen[c.u] = 1; all.push(c); } }); }
+    addList(doc, base);
+    var wd = workId(chUrl), inDir = all.filter(function (c) { return c.u.indexOf(wd) === 0; }).length > all.length * 0.6;
+    var addList0 = addList; addList = function (d, u) { var n0 = all.length; addList0(d, u); if (inDir) all = all.slice(0, n0).concat(all.slice(n0).filter(function (c) { return c.u.indexOf(wd) === 0; })); };
+    var done = {}, queue = tocPages(doc, base, seen), t0 = Date.now(); done[base] = 1;
+    while (queue.length && Object.keys(done).length < 80 && Date.now() - t0 < 60000) {
+      var batch = queue.splice(0, 4).filter(function (u) { return !done[u]; });
+      batch.forEach(function (u) { done[u] = 1; });
+      var docs = await Promise.all(batch.map(function (u) { return getDoc(u).then(function (d) { return { d: d, u: u }; }, function () { return null; }); }));
+      docs.forEach(function (x) {
+        if (!x) return; var n0 = all.length; addList(x.d, x.u);
+        if (all.length > n0) tocPages(x.d, x.u, seen).forEach(function (u) { if (!done[u] && queue.indexOf(u) < 0) queue.push(u); });
+      });
+      if (onProg) onProg(Object.keys(done).length, all.length);
+    }
+    return sortToc(all);
   }
   // \ubaa9\ucc28 \uc815\ub82c: \uc0ac\uc774\ud2b8\uac00 '\ucd5c\uc2e0 \ud654\ubd80\ud130' \ubcf4\uc5ec\uc8fc\uac70\ub098 '\ucc98\uc74c\ubd80\ud130 \uc77d\uae30' \ub9c1\ud06c\ub97c \uc11e\uc5b4 \ub46c\ub3c4 1\ud654\ubd80\ud130 \ucc28\ub840\ub300\ub85c
   var CN = { '\u96f6': 0, '\u3007': 0, '\u4e00': 1, '\u4e8c': 2, '\u4e24': 2, '\u5169': 2, '\u4e09': 3, '\u56db': 4, '\u4e94': 5, '\u516d': 6, '\u4e03': 7, '\u516b': 8, '\u4e5d': 9 };
@@ -1260,22 +1311,31 @@
     pgB.innerHTML = '<div class="spin">\ubaa9\ucc28 \ubd88\ub7ec\uc624\ub294 \uc911</div>';
     var list = tocMem[tocUrl];
     if (!list) {
-      try { list = parseToc(await getDoc(tocUrl), tocUrl, it.ch.url); }
+      try { list = await loadToc(tocUrl, it.ch.url, function (pn, cn) { var sp = pgB.querySelector('.spin'); if (sp) sp.textContent = '\ubaa9\ucc28 \ubd88\ub7ec\uc624\ub294 \uc911 \u00b7 ' + pn + '\ucabd \u00b7 ' + cn + '\ud654'; }); }
       catch (e) { pgB.innerHTML = '<div class="empty">\ubaa9\ucc28\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc5b4\uc694.<br>' + esc(e.message) + '</div>'; return; }
       tocMem[tocUrl] = list;
     }
     if (pageMode !== 'toc') return;
     if (!list.length) { pgB.innerHTML = '<div class="empty">\ubaa9\ucc28\uc5d0\uc11c \ud654 \ubaa9\ub85d\uc744 \ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694.</div><button class="btn pri" style="display:flex;margin:0 auto" data-act="pick" data-k="toc">\ub2e4\ub978 \ubaa9\ucc28 \ub9c1\ud06c \uace0\ub974\uae30</button>'; return; }
+    // \ubaa9\ucc28\uc5d0 \uc548 \ubcf4\uc774\ub294 \ud654\ub77c\ub3c4 \uc774 \uc791\ud488\uc73c\ub85c \ubc88\uc5ed\ud574 \ub454 \ud654\ub294 \ub07c\uc6cc \ub123\uc74c (\uc0ac\uc774\ud2b8 \ubaa9\ucc28\uac00 \uc77c\ubd80\ub9cc \ubcf4\uc5ec \uc918\ub3c4 \uc77d\ub358 \uacf3\uc744 \ucc3e\uc744 \uc218 \uc788\uac8c)
+    var have = {}; list.forEach(function (c) { have[ckey(c.u)] = 1; });
+    var I0 = cIndex(), extra = Object.keys(I0).filter(function (k) { return I0[k].w === it.ch.id && !have[k]; });
+    if (!have[ckey(it.ch.url)] && extra.indexOf(ckey(it.ch.url)) < 0) extra.push(ckey(it.ch.url));
+    if (extra.length) list = sortToc(list.concat(extra.map(function (k) { return { u: k, t: (I0[k] && I0[k].t) || it.title || k, extra: 1 }; })));
+    // \ud654 \ubc88\ud638\uac00 \ud06c\uac8c \uac74\ub108\ub6f0\ub294 \uacf3: \uc0ac\uc774\ud2b8 \ubaa9\ucc28\uac00 \uc77c\ubd80\ub9cc \ubcf4\uc5ec \uc8fc\ub294 \uacbd\uc6b0 \uc54c\ub824 \uc90c
+    var gap = null, prevN = null;
+    list.forEach(function (c) { var n = chNum(c.t); if (n != null && n >= 1) { if (prevN != null && n - prevN > 5 && !gap) gap = [prevN + 1, n - 1]; prevN = n; } });
     var read = (libAll()[it.ch.id] || {}).read || {}, cur = it.ch.url.replace(/#.*$/, ''), readN = 0, trN = 0;
     var rows = list.map(function (c, i) {
       var tr = cacheHas(c.u), isRead = read[ckey(c.u)] || read[c.u], isCur = ckey(c.u) === ckey(cur);
       if (isRead) readN++; if (tr) trN++;
-      return '<button class="row' + (isRead ? ' read' : '') + (isCur ? ' cur' : '') + '" data-act="open" data-u="' + esc(c.u) + '"><span class="rt">' +
+      return '<button class="row' + (isRead ? ' read' : '') + (isCur ? ' cur' : '') + (tr ? ' tr' : '') + '" data-act="open" data-u="' + esc(c.u) + '"><span class="rt">' +
         esc(tr ? tr.t : c.t) + (tr && tr.t !== c.t ? '<small>' + esc(c.t) + '</small>' : '') + '</span>' +
         (isCur ? '<span class="bdg">\uc77d\ub294 \uc911</span>' : tr ? '<span class="bdg">\ubc88\uc5ed\ub428</span>' : '') + '</button>';
     });
-    pgB.innerHTML = '<div class="tbar"><button data-act="tocCur">\uc77d\ub294 \uacf3\uc73c\ub85c</button><button data-act="tocTop">\ucc98\uc74c\uc73c\ub85c</button><button data-act="tocEnd">\ucd5c\uc2e0 \ud654\ub85c</button></div>' +
-      '<div class="hint" style="font-size:12.5px;color:var(--mut);margin:0 2px 8px">\uc804\uccb4 ' + list.length + '\ud654 \u00b7 \uc77d\uc74c ' + readN + ' \u00b7 \ubc88\uc5ed\ub428 ' + trN + '</div>' + rows.join('');
+    pgB.innerHTML = '<div class="tbar"><button data-act="tocCur">\uc77d\ub294 \uacf3\uc73c\ub85c</button><button data-act="tocLastTr">\ub9c8\uc9c0\ub9c9 \ubc88\uc5ed</button><button data-act="tocTop">\ucc98\uc74c\uc73c\ub85c</button><button data-act="tocEnd">\ucd5c\uc2e0 \ud654\ub85c</button></div>' +
+      '<div class="hint" style="font-size:12.5px;color:var(--mut);margin:0 2px 8px">\uc804\uccb4 ' + list.length + '\ud654 \u00b7 \uc77d\uc74c ' + readN + ' \u00b7 \ubc88\uc5ed\ub428 ' + trN +
+      (gap ? '<br>' + gap[0] + (gap[1] > gap[0] ? '~' + gap[1] : '') + '\ud654\ub294 \uc0ac\uc774\ud2b8 \ubaa9\ucc28\uc5d0 \ubcf4\uc774\uc9c0 \uc54a\uc544\uc694. \ubc88\uc5ed\ud574 \ub454 \ud654\ub294 \ubaa9\ub85d\uc5d0 \ub123\uc5b4 \ub480\uc5b4\uc694.' : '') + '</div>' + rows.join('');
     var c = pgB.querySelector('.row.cur'); if (c) pgB.scrollTop = c.offsetTop - pgB.clientHeight / 2;
   }
 
@@ -1333,8 +1393,10 @@
     if (name === 'exportCur') { var ci2 = chapters[curIndex()] || lastItem(); if (ci2) exportWork(ci2.ch.id); return; }
     if (name === 'libDel') { var L = libAll(); delete L[t.dataset.id]; gset('lib', L); renderLibBody(); toast('\uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6e0\uc5b4\uc694'); return; }
     if (name === 'open') { if (pg.classList.contains('edit')) return; openChapter(t.dataset.u, pageMode === 'lib' ? 'lib' : 'toc'); return; }
-    if (name === 'tocCur' || name === 'tocTop' || name === 'tocEnd') {
-      var r = name === 'tocTop' ? pgB.querySelector('.row') : name === 'tocEnd' ? pgB.querySelector('.row:last-of-type') : pgB.querySelector('.row.cur');
+    if (name === 'tocCur' || name === 'tocTop' || name === 'tocEnd' || name === 'tocLastTr') {
+      var trs = pgB.querySelectorAll('.row.tr');
+      var r = name === 'tocTop' ? pgB.querySelector('.row') : name === 'tocEnd' ? pgB.querySelector('.row:last-of-type') : name === 'tocLastTr' ? trs[trs.length - 1] : (pgB.querySelector('.row.cur') || trs[trs.length - 1]);
+      if (!r && name === 'tocLastTr') { toast('\uc774 \uc791\ud488\uc740 \ubc88\uc5ed\ud574 \ub454 \ud654\uac00 \uc5c6\uc5b4\uc694'); return; }
       if (r) pgB.scrollTo({ top: r.offsetTop - pgB.clientHeight / 2, behavior: 'smooth' }); return;
     }
     if (name === 'theme') { prefs.theme = t.dataset.v; savePrefs(); applyPrefs(); return; }
