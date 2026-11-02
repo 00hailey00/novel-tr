@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.4.6
+// @version      1.4.7
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -31,7 +31,7 @@
   function gxhr(o) {
     return new Promise(function (res, rej) {
       var x = {};
-      for (var k in o) x[k] = o[k];
+      for (var k in o) if (k !== '_box') x[k] = o[k];
       // \ud3f0\uc774 \uc7a0\ub4e4\uac70\ub098 \ud0ed\uc774 \ub4a4\ub85c \uac00\uba74 \uc694\uccad\uc774 \uc18c\ub9ac \uc5c6\uc774 \uc0ac\ub77c\uc838 \uc2dc\uac04 \ucd08\uacfc \uc54c\ub9bc\uc870\ucc28 \uc548 \uc62c \ub54c\uac00 \uc788\uc5b4\uc11c, \ub530\ub85c \uc2dc\uacc4\ub97c \ub460
       var done = false, h = null, wd = setTimeout(function () { fin(rej, new Error('\uc751\ub2f5\uc774 \ub108\ubb34 \uc624\ub798 \uac78\ub824\uc694 (\uc2dc\uac04 \ucd08\uacfc)')); try { h && h.abort && h.abort(); } catch (e) { } }, (o.timeout || 60000) + 10000);
       function fin(f, v) { if (done) return; done = true; clearTimeout(wd); f(v); }
@@ -39,7 +39,7 @@
       x.onerror = function () { fin(rej, new Error('\ub124\ud2b8\uc6cc\ud06c \uc624\ub958')); };
       x.ontimeout = function () { fin(rej, new Error('\uc751\ub2f5\uc774 \ub108\ubb34 \uc624\ub798 \uac78\ub824\uc694 (\uc2dc\uac04 \ucd08\uacfc)')); };
       x.onabort = function () { fin(rej, new Error('\uc694\uccad\uc774 \ucde8\uc18c\ub410\uc5b4\uc694')); };
-      try { h = GM_xmlhttpRequest(x); } catch (e) { fin(rej, e); }
+      try { h = GM_xmlhttpRequest(x); if (o._box) o._box.abort = function () { try { h && h.abort && h.abort(); } catch (e) { } fin(rej, new Error('\uc694\uccad\uc774 \ucde8\uc18c\ub410\uc5b4\uc694')); }; } catch (e) { fin(rej, e); }
     });
   }
   var PW = window.wrappedJSObject || window; // \ud398\uc774\uc9c0 \ucabd window (\uad11\uace0 \ud0c0\uc774\uba38\u00b7\ud31d\uc5c5 \uc815\ub9ac\uc6a9)
@@ -239,6 +239,24 @@
     if (/API \d+/.test(m)) return m.slice(0, 40);
     return m.slice(0, 30) || '\uc54c \uc218 \uc5c6\uc74c';
   }
+  // \uad6c\uae00\uc774 \uac00\ub054 \ud55c \uc694\uccad\ub9cc \uc720\ub09c\ud788 \uc624\ub798 \ubd99\uc7a1\uace0 \uc788\uc74c: \uc77c\uc815 \uc2dc\uac04 \ub2f5\uc774 \uc5c6\uc73c\uba74 \ub2e4\ub978 \uc9c0\uc5ed \uc11c\ubc84\uc5d0\ub3c4 \uac19\uc740 \uc694\uccad\uc744 \ubcf4\ub0b4 \uba3c\uc800 \uc628 \ub2f5\uc744 \uc500
+  var HEDGE_MS = 25000;
+  function hedgedSend(mk, alt, onHedge) {
+    return new Promise(function (res, rej) {
+      var boxes = [], pend = 0, done = false, hedged = false, bad = null, err = null, ht = null;
+      function finish(f, v) { done = true; clearTimeout(ht); boxes.forEach(function (b) { if (b.abort) b.abort(); }); f(v); }
+      function got(i, r, e) {
+        pend--; if (done) return;
+        if (r && r.status >= 200 && r.status < 300) { boxes[i] = {}; return finish(res, r); }
+        if (r && !bad) bad = r; if (e && !err) err = e;
+        if (i === 0 && !hedged) { boxes[0] = {}; return r ? finish(res, r) : finish(rej, e); } // \ub2e4\ub978 \uc11c\ubc84\uc5d0 \ubcf4\ub0b4\uae30 \uc804 \uc624\ub958\ub294 \ud3c9\uc18c\ub300\ub85c \ucc98\ub9ac
+        if (!pend) bad ? finish(res, bad) : finish(rej, err);
+      }
+      function start(i) { var o = mk(i); o._box = boxes[i] = {}; pend++; gxhr(o).then(function (r) { got(i, r); }, function (e) { got(i, null, e); }); }
+      if (alt != null) ht = setTimeout(function () { if (done) return; hedged = true; if (onHedge) onHedge(); start(1); }, HEDGE_MS);
+      start(0);
+    });
+  }
   async function callApi(text, temp, sys, onStatus, model) {
     var SAFE = ['OFF', 'BLOCK_NONE', 'BLOCK_ONLY_HIGH'];
     var say = onStatus || function () { };
@@ -260,8 +278,13 @@
       try {
         var tk = await token(t > 0 && last && /API 401/.test(last.message));
         say(t ? '\ub2e4\uc2dc \uc694\uccad\ud558\ub294 \uc911 (' + whyShort(last) + ')' : '\uc751\ub2f5 \uae30\ub2e4\ub9ac\ub294 \uc911');
-        var r = await gxhr({ method: 'POST', url: urlFor(model ? Object.assign({}, C, { m: model }) : C, locs[li]), anonymous: true, timeout: t === 0 ? 60000 : 120000,
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, data: JSON.stringify(req) });
+        var body = JSON.stringify(req), alt = locs.filter(function (l) { return l !== locs[li] && l !== 'global'; })[0];
+        if (alt == null && locs[li] !== 'global') alt = 'global';
+        if (C.noHedge) alt = null;
+        var r = await hedgedSend(function (i) {
+          return { method: 'POST', url: urlFor(model ? Object.assign({}, C, { m: model }) : C, i ? alt : locs[li]), anonymous: true, timeout: t === 0 ? 90000 : 120000,
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, data: body };
+        }, alt, function () { say('\uc751\ub2f5\uc774 \ub2a6\uc5b4 \ub2e4\ub978 \uad6c\uae00 \uc11c\ubc84\uc5d0\ub3c4 \uac19\uc774 \uc694\uccad\ud558\ub294 \uc911'); });
         var j; try { j = JSON.parse(r.responseText); } catch (e) { j = {}; }
         if (r.status === 404 && li < locs.length - 1) { li++; t--; continue; }
         if (r.status === 400 && req.generationConfig.thinkingConfig && /think/i.test(r.responseText || '')) {
