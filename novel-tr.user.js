@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.4.3
+// @version      1.4.4
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -160,7 +160,14 @@
     var body = findBody(doc);
     if (!body) throw new Error('\ubcf8\ubb38\uc744 \ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694');
     var cands = linkCands(doc, url);
-    return { url: url, title: titleOf(doc), lines: lines(body), links: cands.filter(function (c) { return c.t; }).slice(0, 120),
+    // \ud55c \ud654\uac00 \uc5ec\ub7ec \ucabd\uc73c\ub85c \ub098\ub25c \uc0ac\uc774\ud2b8: "(2 / 2)" \uac19\uc740 \ucabd \ud45c\uc2dc
+    var part = null, PR = /^[(\uff08\[]?\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*[)\uff09\]]?$/;
+    [].some.call(doc.querySelectorAll('h1,h2,h3,div,span,p,small,em'), function (x) {
+      if (x.children.length > 1) return false;
+      var m = x.textContent.trim().match(PR) || (/^H[123]$/.test(x.tagName) && x.textContent.match(/[(\uff08]\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*[)\uff09]\s*$/));
+      if (m && +m[1] >= 1 && +m[1] <= +m[2] && +m[2] > 1) { part = [+m[1], +m[2]]; return true; } return false;
+    });
+    return { url: url, part: part, title: titleOf(doc).replace(/\s*[(\uff08]\s*\d{1,2}\s*\/\s*\d{1,2}\s*[)\uff09]\s*$/, ''), lines: lines(body), links: cands.filter(function (c) { return c.t; }).slice(0, 120),
       next: findLink(doc, url, 'next', cands), prev: findLink(doc, url, 'prev', cands) };
   }
   async function getDoc(u) {
@@ -556,6 +563,7 @@
     '.grp p.busy{animation:pl 1.2s ease-in-out infinite}',
     '@keyframes fi{from{opacity:0;transform:translateY(5px)}}',
     '.er{font-family:var(--ui);font-size:14px;color:#e5534b;white-space:pre-wrap;padding:14px 0}',
+    'section.cont .chl{margin-bottom:22px;opacity:.85}',
     '.sep{display:flex;align-items:center;justify-content:center;gap:12px;margin:72px 0 48px;color:var(--mut);font-family:var(--ui);font-size:12px}',
     '.sep:before,.sep:after{content:"";flex:1;max-width:80px;height:1px;background:var(--bd)}',
     '.endrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px;font-family:var(--ui)}',
@@ -927,12 +935,19 @@
   }
   function setTitle(item, t) {
     item.title = t; var tp = titleParts(t);
+    if (item.cont) { // \uac19\uc740 \ud654\uc758 \ub2e4\uc74c \ucabd: \ud070 \uc81c\ubaa9 \ub300\uc2e0 '\uc774\uc5b4\uc11c' \ud45c\uc2dc
+      item.chl.textContent = (tp.label || tp.name) + ' \uc774\uc5b4\uc11c' + (item.ch.part ? ' (' + item.ch.part[0] + '/' + item.ch.part[1] + '\ucabd)' : '');
+      item.chl.style.display = ''; item.cht.textContent = tp.name; item.cht.style.display = 'none'; return;
+    }
     item.chl.textContent = tp.label; item.chl.style.display = tp.label ? '' : 'none'; item.cht.textContent = tp.name;
   }
   function show(ch, old, keep, keepTitle) {
     var sec = el('section'), chl = el('div', 'chl'), cht = el('h2', 'cht'), meta = el('div', 'meta');
     sec.appendChild(chl); sec.appendChild(cht); sec.appendChild(meta);
     var item = { ch: ch, sec: sec, chl: chl, cht: cht, meta: meta, title: ch.title, done: false, failed: false, nextP: null, chunks: makeChunks(ch), v: null, fp: ch.fp || fpOf(ch.lines) };
+    var prevIt = old ? chapters[chapters.indexOf(old) - 1] : chapters[chapters.length - 1];
+    item.cont = !!((ch.part && ch.part[0] > 1) || (prevIt && prevIt.ch.title && prevIt.ch.title === ch.title));
+    if (item.cont) sec.classList.add('cont');
     setTitle(item, ch.title);
     // \uc6d0\ubb38\uc744 \ub369\uc5b4\ub9ac\ubcc4\ub85c \ubbf8\ub9ac \uae54\uc544\ub460 (\uccab \ub369\uc5b4\ub9ac\uc758 \uccab \uc904\uc740 \uc81c\ubaa9\uc774\ub77c \uc81c\uc678)
     var grps = item.chunks.map(function (lines, ci) {
