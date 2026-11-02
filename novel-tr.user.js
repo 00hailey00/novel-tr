@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.4.0
+// @version      1.4.1
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -317,6 +317,9 @@
     if (src.length >= 3 && out.length <= 2) return true; // \uc5ec\ub7ec \uc904\uc744 \ub123\uc5c8\ub294\ub370 \ud55c\ub450 \uc904\ub9cc \ub3cc\uc544\uc634
     return o.length < sl * 1.2 && !/(\ubc88\uc5ed|\u7ffb\u8b6f|\u7ffb\u8bd1)/.test(src.join('')); // \ud55c\uad6d\uc5b4 \ubc88\uc5ed\uc740 \ubcf4\ud1b5 \uc6d0\ubb38\ubcf4\ub2e4 \uae38\ub2e4
   }
+  // \uc0ac\uc774\ud2b8\uac00 \ubcf8\ubb38 \ub300\uc2e0 \ub744\uc6b4 \uc548\ub0b4\ubb38 ("\uc774 \ud654 \ub0b4\uc6a9\uc774 \uc5c6\uc74c/\uc218\ub9ac \uc911/\ubaa9\ub85d\uc5d0\uc11c \ub2e4\uc2dc \uace0\ub974\uc138\uc694" \ub4f1)
+  var MISSING = /\u7ae0[\u7bc0\u8282]?(\u5167\u5bb9|\u5185\u5bb9)?(\u7f3a\u5931|\u4e0d\u5b58\u5728|\u672a\u627e\u5230|\u627e\u4e0d\u5230)|\u5167\u5bb9\u7f3a\u5931|\u5185\u5bb9\u7f3a\u5931|\u6b63\u5728\u4fee[\u5fa9\u590d]|\u5c1a\u672a\u6536[\u9304\u5f55]|[\u8acb\u8bf7][\u5f9e\u4ece]\u76ee[\u9304\u5f55]\u91cd\u65b0[\u9078\u9009]|\u672c\u7ae0[\u7bc0\u8282]?(\u4e0d\u5b58\u5728|\u5df2[\u522a\u5220]\u9664)|\u7ae0[\u7bc0\u8282]\u5df2[\u522a\u5220]\u9664|[\u5167\u5185]\u5bb9(\u6b63\u5728)?\u66f4\u65b0\u4e2d|\u66ab\u7121\u5167\u5bb9|\u6682\u65e0\u5185\u5bb9/;
+  function siteNotice(ls) { var j = ls.join(''); return hanLen(j) < 150 && MISSING.test(j) ? j : ''; }
   async function callLines(ls, temp, say, model) {
     var out = (await callApi(ls.join('\n'), temp, null, say, model)).split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
     if (looksRefusal(out, ls)) throw new Error('\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c (REFUSAL)');
@@ -906,7 +909,7 @@
       ch.fp = fpOf(ch.lines);
       if (asNext) { // \ub2e4\uc74c \ud654\ub85c \ubd88\ub7ec\uc628 \uacbd\uc6b0: \uc774\ubbf8 \ubcf8 \ud654\uc774\uac70\ub098 \ubaa9\ucc28 \ud398\uc774\uc9c0\uba74 '\ub9c8\uc9c0\ub9c9 \ud654'
         var dup = chapters.some(function (c) { return c.fp === ch.fp || ckey(c.ch.url) === ckey(ch.url) || (c.ch.toc && ckey(c.ch.toc) === ckey(ch.url)); });
-        if (dup || looksLikeList(ch.lines)) return { err: new Error('\ub9c8\uc9c0\ub9c9 \ud654\uc778 \uac83 \uac19\uc544\uc694'), last: true };
+        if (!siteNotice(ch.lines) && (dup || looksLikeList(ch.lines))) return { err: new Error('\ub9c8\uc9c0\ub9c9 \ud654\uc778 \uac83 \uac19\uc544\uc694'), last: true };
       }
       if (limit !== 0) startTranslate(ch, null, null, limit); return ch;
     }
@@ -933,11 +936,14 @@
     });
     var oi = old ? chapters.indexOf(old) : -1;
     if (oi >= 0) { old.sec.replaceWith(sec); chapters[oi] = item; } else { wrap.appendChild(sec); chapters.push(item); }
-    if (!ch.lines.length) { // \ubcf8\ubb38 \uc5c6\uc74c: \ubc88\uc5ed \ub300\uc2e0 \ub2e4\uc2dc \ubd88\ub7ec\uc624\uae30 \uc548\ub0b4
+    var notice = ch.lines.length ? siteNotice(ch.lines) : '';
+    if (!ch.lines.length || notice) { // \ubcf8\ubb38 \uc5c6\uc74c / \uc0ac\uc774\ud2b8 \uc548\ub0b4\ubb38\ubfd0: \ubc88\uc5ed \ub300\uc2e0 \uc548\ub0b4
       meta.remove(); item.failed = true; item.empty = true;
-      var er0 = el('div', 'er', '\ubcf8\ubb38\uc744 \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc5b4\uc694. \uc0ac\uc774\ud2b8\uac00 \uc7a0\uc2dc \ub9c9\uc558\uac70\ub098 \uc778\uc99d \ud654\uba74\uc774 \ub5b4\uc744 \uc218 \uc788\uc5b4\uc694.'); sec.appendChild(er0);
+      var er0 = el('div', 'er', notice ? '\uc0ac\uc774\ud2b8\uc5d0 \uc774 \ud654 \ubcf8\ubb38\uc774 \uc5c6\uc5b4\uc694. \uc0ac\uc774\ud2b8\uac00 \ub744\uc6b4 \uc548\ub0b4\ubb38: "' + notice.slice(0, 60) + '" (\uc774 \ud654 \ub0b4\uc6a9\uc774 \ube60\uc84c\uac70\ub098 \uc544\uc9c1 \ub4f1\ub85d\ub418\uc9c0 \uc54a\uc558\ub2e4\ub294 \ub73b\uc774\uc5d0\uc694. \uc0ac\uc774\ud2b8\uac00 \uace0\uce58\ub294 \uc911\uc77c \uc218 \uc788\uc5b4\uc694.)'
+        : '\ubcf8\ubb38\uc744 \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc5b4\uc694. \uc0ac\uc774\ud2b8\uac00 \uc7a0\uc2dc \ub9c9\uc558\uac70\ub098 \uc778\uc99d \ud654\uba74\uc774 \ub5b4\uc744 \uc218 \uc788\uc5b4\uc694.'); sec.appendChild(er0);
       var r0 = el('div', 'endrow');
       var b1 = el('button', 'btn pri', '\ub2e4\uc2dc \ubd88\ub7ec\uc624\uae30'); b1.dataset.act = 'refetch'; b1._item = item; r0.appendChild(b1);
+      if (notice && ch.next) { var b3 = el('button', 'btn', '\uc774 \ud654 \uac74\ub108\ub6f0\uace0 \ub2e4\uc74c \ud654'); b3.dataset.act = 'skipNext'; b3._item = item; r0.appendChild(b3); }
       var b2 = el('button', 'btn', '\uc6d0\ubcf8 \ud398\uc774\uc9c0\ub85c \uc5f4\uae30'); b2.dataset.act = 'openReal'; b2.dataset.u = ch.url; r0.appendChild(b2);
       sec.appendChild(r0); updateTail();
       return Promise.resolve(item);
@@ -1021,7 +1027,7 @@
   }
   async function appendNext() {
     var L = lastItem();
-    if (!L || !L.done || appending || !L.ch.next) return null;
+    if (!L || !(L.done || L.skipped) || appending || !L.ch.next) return null;
     appending = true; L.nextErr = null; updateTail();
     if (!L.nextP) L.nextP = prefetch(L.ch.next, null, true);
     var g0 = viewGen, nch = await L.nextP;
@@ -1362,6 +1368,10 @@
       if (nf.err) { toast(nf.err.message.slice(0, 50)); return; }
       show(nf, chapters.indexOf(fi) >= 0 ? fi : null); return;
     }
+    if (name === 'skipNext') { // \ubcf8\ubb38 \uc5c6\ub294 \ud654\ub97c \uac74\ub108\ub6f0\uace0 \ub2e4\uc74c \ud654\ub85c
+      var si = t._item; si.skipped = true; t.disabled = true;
+      var sn = await appendNext(); if (sn) scrollToItem(sn); return;
+    }
     if (name === 'openReal') { // \uc774 \ud0ed\uc5d0\uc11c \uc6d0\ubcf8 \ud398\uc774\uc9c0\ub97c \uc9c1\uc811 \uc5f4\uace0(\uc0ac\uc774\ud2b8 \uc2a4\ud06c\ub9bd\ud2b8\u00b7\uc778\uc99d \ud1b5\uacfc) \uac70\uae30\uc11c \ub2e4\uc2dc \ubc88\uc5ed
       location.href = String(t.dataset.u).split('#')[0] + '#nvtr' + Date.now(); return;
     }
@@ -1409,7 +1419,7 @@
       var i = curIndex();
       if (chapters[i + 1]) { scrollToItem(chapters[i + 1]); return; }
       var Lt = lastItem();
-      if (!Lt.done) { toast(Lt.failed ? '\uc774\ubc88 \ud654 \ubc88\uc5ed\uc774 \uc2e4\ud328\ud588\uc5b4\uc694. \ub2e4\uc2dc \uc2dc\ub3c4\ub97c \ub20c\ub7ec \uc8fc\uc138\uc694' : '\uc774\ubc88 \ud654\ub97c \uc544\uc9c1 \ubc88\uc5ed\ud558\uace0 \uc788\uc5b4\uc694'); return; }
+      if (!Lt.done && !Lt.skipped) { toast(Lt.failed ? '\uc774\ubc88 \ud654 \ubc88\uc5ed\uc774 \uc2e4\ud328\ud588\uc5b4\uc694. \ub2e4\uc2dc \uc2dc\ub3c4\ub97c \ub20c\ub7ec \uc8fc\uc138\uc694' : '\uc774\ubc88 \ud654\ub97c \uc544\uc9c1 \ubc88\uc5ed\ud558\uace0 \uc788\uc5b4\uc694'); return; }
       if (Lt.isLast) { toast('\ub9c8\uc9c0\ub9c9 \ud654\uae4c\uc9c0 \uc77d\uc5c8\uc5b4\uc694'); return; }
       if (!Lt.ch.next) { openPicker('next', Lt); return; }
       var n = await appendNext();
