@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.4.9
+// @version      1.5.0
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -251,21 +251,21 @@
   // \uc544\uc8fc \ub290\ub9b4 \ub54c\ub9cc: 25\ucd08 \ub3d9\uc548 \uae00\uc790\uac00 \ud558\ub098\ub3c4 \uc548 \uc624\uba74 \ub2e4\ub978 \uc9c0\uc5ed \uc11c\ubc84 2\uacf3\uc5d0\ub3c4 \uac19\uc740 \uc694\uccad. \uba3c\uc800 \uae00\uc790\ub97c \ubcf4\ub0b4\uae30 \uc2dc\uc791\ud55c \ucabd\ub9cc \ub0a8\uae30\uace0 \ub098\uba38\uc9c0\ub294 \ucde8\uc18c
   function hedgedSend(mk, alts, onHedge, onBad, onText) {
     return new Promise(function (res, rej) {
-      var boxes = [], pend = 0, done = false, hedged = false, bad = null, err = null, ht = null, win = -1;
+      var boxes = [], pend = 0, done = false, hedged = false, out0 = null, ht = null, win = -1;
       function finish(f, v) { done = true; clearTimeout(ht); boxes.forEach(function (b) { if (b.abort) b.abort(); }); f(v); }
       function got(i, r, e) {
         pend--; if (done) return;
         if (r && r.status >= 200 && r.status < 300 && (win < 0 || win === i)) { boxes[i] = {}; return finish(res, r); }
         if (i > 0 && r && onBad) onBad(alts[i - 1], r);
-        if (r && !bad) bad = r; if (e && !err) err = e;
+        if (i === 0) out0 = { r: r, e: e }; // \uacb0\uacfc\ub97c \uc815\ud560 \ub54c\ub294 \uc6d0\ub798 \uc11c\ubc84 \ucabd\uc744 \uc6b0\uc120 (\ub2e4\ub978 \uc9c0\uc5ed\uc758 '\ubaa8\ub378 \uc5c6\uc74c' 404\uac00 \ucd5c\uc885 \uc624\ub958\uac00 \ub418\uc9c0 \uc54a\uac8c)
         if (i === win) win = -1;
         if (i === 0 && !hedged) { boxes[0] = {}; return r ? finish(res, r) : finish(rej, e); } // \ub2e4\ub978 \uc11c\ubc84\uc5d0 \ubcf4\ub0b4\uae30 \uc804 \uc624\ub958\ub294 \ud3c9\uc18c\ub300\ub85c \ucc98\ub9ac
-        if (!pend) bad ? finish(res, bad) : finish(rej, err);
+        if (!pend) out0 && out0.r ? finish(res, out0.r) : finish(rej, (out0 && out0.e) || new Error('\uc751\ub2f5\uc774 \ub108\ubb34 \uc624\ub798 \uac78\ub824\uc694 (\uc2dc\uac04 \ucd08\uacfc)'));
       }
       function start(i) {
         var o = mk(i); o._box = boxes[i] = {}; pend++;
         o.onbytes = function (t) {
-          if (done) return;
+          if (done || !/^\s*data:/m.test(t)) return; // \uc624\ub958 \uc751\ub2f5(404 \ub4f1)\uc774 \uc544\ub2c8\ub77c \uc9c4\uc9dc \ubc88\uc5ed \uae00\uc790\uac00 \uc62c \ub54c\ub9cc
           if (win < 0) { win = i; clearTimeout(ht); if (hedged) boxes.forEach(function (b, k) { if (k !== i && b.abort) { b.abort(); boxes[k] = {}; } }); }
           if (win === i && onText) onText(t);
         };
@@ -1112,6 +1112,12 @@
     }, function (e) {
       clearInterval(tm);
       if (/\ucde8\uc18c\ub428/.test(e.message)) return item; // \uc0c8 \ubc88\uc5ed\uc73c\ub85c \ubc14\ub01c
+      // \uc7a0\uae50\uc758 \ubb38\uc81c(\uc2dc\uac04 \ucd08\uacfc\u00b7\ub124\ud2b8\uc6cc\ud06c\u00b7\uad6c\uae00 \uc11c\ubc84 \uc624\ub958)\ub294 \ub05d\ub09c \ubd80\ubd84\uc744 \uc0b4\ub824 \ub450\uace0 \uc54c\uc544\uc11c \ub450 \ubc88\uae4c\uc9c0 \uc774\uc5b4\uc11c \ub2e4\uc2dc
+      if (/\uc2dc\uac04 \ucd08\uacfc|\ub124\ud2b8\uc6cc\ud06c|\ucde8\uc18c\ub410\uc5b4\uc694|API (429|5\d\d)/.test(e.message) && (item.autoR || 0) < 2 && chapters.indexOf(item) >= 0) {
+        var n2 = (item.autoR || 0) + 1; toast('\uc7a0\uae50 \ubb38\uc81c\uac00 \uc788\uc5b4 \uc774\uc5b4\uc11c \ub2e4\uc2dc \ubc88\uc5ed\ud560\uac8c\uc694');
+        var pr = restartTranslate(item); var ni2 = chapters.find(function (c) { return c.ch.url === item.ch.url; }); if (ni2) ni2.autoR = n2;
+        return pr;
+      }
       item.failed = true; meta.textContent = '';
       var diag = /\ube44\uc5b4 \uc788\uc5b4\uc694/.test(e.message) ? ' (\ucc3e\uc740 \uc6d0\ubb38 ' + ch.lines.length + '\uc904: "' + ch.lines.join(' ').slice(0, 40) + '\u2026")' : '';
       var er = el('div', 'er', '\ubc88\uc5ed \uc2e4\ud328: ' + e.message + diag); sec.insertBefore(er, sec.querySelector('.grp'));
