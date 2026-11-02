@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.4.5
+// @version      1.4.6
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -566,7 +566,7 @@
     '.grp p.busy{animation:pl 1.2s ease-in-out infinite}',
     '@keyframes fi{from{opacity:0;transform:translateY(5px)}}',
     '.er{font-family:var(--ui);font-size:14px;color:#e5534b;white-space:pre-wrap;padding:14px 0}',
-    'section.cont .chl{margin-bottom:22px;opacity:.85}',
+    'section.cpart .chl{margin-bottom:22px;opacity:.85}',
     '.sep{display:flex;align-items:center;justify-content:center;gap:12px;margin:72px 0 48px;color:var(--mut);font-family:var(--ui);font-size:12px}',
     '.sep:before,.sep:after{content:"";flex:1;max-width:80px;height:1px;background:var(--bd)}',
     '.endrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px;font-family:var(--ui)}',
@@ -950,7 +950,7 @@
     var item = { ch: ch, sec: sec, chl: chl, cht: cht, meta: meta, title: ch.title, done: false, failed: false, nextP: null, chunks: makeChunks(ch), v: null, fp: ch.fp || fpOf(ch.lines) };
     var prevIt = old ? chapters[chapters.indexOf(old) - 1] : chapters[chapters.length - 1];
     item.cont = !!((ch.part && ch.part[0] > 1) || (prevIt && prevIt.ch.title && prevIt.ch.title === ch.title));
-    if (item.cont) sec.classList.add('cont');
+    if (item.cont) sec.classList.add('cpart');
     setTitle(item, ch.title);
     // \uc6d0\ubb38\uc744 \ub369\uc5b4\ub9ac\ubcc4\ub85c \ubbf8\ub9ac \uae54\uc544\ub460 (\uccab \ub369\uc5b4\ub9ac\uc758 \uccab \uc904\uc740 \uc81c\ubaa9\uc774\ub77c \uc81c\uc678)
     var grps = item.chunks.map(function (lines, ci) {
