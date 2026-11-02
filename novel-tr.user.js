@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.4.2
+// @version      1.4.3
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -71,6 +71,9 @@
     }
     return s;
   }
+  // \uc0ac\uc774\ud2b8 \uad11\uace0\u00b7\ud68c\uc6d0 \uc548\ub0b4 \ubb38\uad6c (\ubcf8\ubb38\uc73c\ub85c \ucc29\uac01\ud558\uc9c0 \uc54a\uac8c)
+  var AD = /\$\s*\d+(\.\d+)?\s*USD|\bVIP\b|Apple\s*Pay|Google\s*Pay|WebATM|ATM\s*[\u8f49\u8f6c]\u5e33|[\u6708\u5b63\u5e74]\u5361\s*\$|\u4fe1\u7528\u5361|\u514d[\u8cbb\u8d39][\u8a3b\u6ce8][\u518a\u518c]|\u7acb\u5373\u767b[\u5165\u5f55\u9304]|\u767b[\u5165\u5f55\u9304]\s*\/|\u767b[\u5165\u5f55\u9304]\u5f8c|[\u8a3b\u6ce8][\u518a\u518c]\u5f8c|\u7ae0[\u7bc0\u8282][\u5831\u62a5][\u932f\u9519]|[\u66f8\u4e66][\u9801\u9875]\s*\/\s*\u76ee[\u9304\u5f55]|[\u5ee3\u5e7f]\u544a[\u7e3d\u603b\u7acb\u5168]|[\u5ee3\u5e7f]\u544a[\u6e05\u8df3]|\u5168\u7ad9[\u5ee3\u5e7f]\u544a|\u4e00\u676f\u73cd\u5976|\u96f2\u7aef[\u66f8\u4e66]\u67b6|[\u66f8\u4e66]\u67b6\u540c\u6b65|[\u8a55\u8bc4][\u8ad6\u8bba]\u4e92[\u52d5\u52a8]|\u4ed8\u6b3e\u529f\u80fd|oop\.tw/i;
+  function adLine(l) { return l.length < 160 && AD.test(l); }
   var SKIP = /^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA|NAV|HEADER|FOOTER|ASIDE|BUTTON|SELECT|OPTION|A|H1|H2|H3)$/;
   function hanLen(t) { var m = t.match(/[\u3400-\u9fff]/g); return m ? m.length : 0; }
   // \ubcf8\ubb38 \ucc3e\uae30: \u2460 \ud754\ud55c \ubcf8\ubb38 id/class \u2461 \uae00\uc790(\ud55c\uc790) \uc218 \uc810\uc218 \u2014 \uae00\uc774 \uc9c1\uc811 \ub2f4\uae34 \uc694\uc18c\uc5d0 \uc804\ubd80, \uadf8 \uc704 \ub2e8\uacc4\uc5d0 \uc808\ubc18\u00b74\ubd84\uc758 1\uc744 \ub354\ud574 \uac00\uc7a5 \ub192\uc740 \uacf3
@@ -79,12 +82,12 @@
     for (var i = 0; i < SEL.length; i++) {
       var e = doc.querySelector(SEL[i]);
       if (e && hanLen(e.textContent) > 150 && own(e) > 100) return e;
-      if (e && !selHit && hanLen(e.textContent) >= 4) selHit = e;
+      if (e && !selHit && hanLen(e.textContent) >= 4 && !adLine(e.textContent.replace(/\s+/g, ' ').trim().slice(0, 150))) selHit = e;
     }
     if (!doc.body) return null;
     var score = new Map(), tw = doc.createTreeWalker(doc.body, 4 /* SHOW_TEXT */), n, cnt = 0;
     while ((n = tw.nextNode()) && cnt++ < 60000) {
-      var len = hanLen(n.nodeValue); if (len < 4) continue;
+      var len = hanLen(n.nodeValue); if (len < 4 || adLine(n.nodeValue.trim())) continue;
       var p = n.parentElement, bad = false;
       for (var q = p; q && q !== doc.body; q = q.parentElement) if (SKIP.test(q.tagName)) { bad = true; break; }
       if (bad || !p) continue;
@@ -116,7 +119,7 @@
     c.querySelectorAll('p,div').forEach(function (x) { x.append('\n'); });
     return c.textContent.split(/\n+/).map(function (s) {
       return s.replace(/[\u200b-\u200f\u2060\ufeff\u00ad]/g, '').replace(/^[\s\u3000\u00a0]+|[\s\u3000\u00a0]+$/g, '');
-    }).filter(function (s) { return /[^\s\p{P}\p{S}]/u.test(s); });
+    }).filter(function (s) { return /[^\s\p{P}\p{S}]/u.test(s) && !adLine(s); });
   }
   function titleOf(doc) {
     var h = doc.querySelector('h1') || doc.querySelector('.bookname h1, .title, h2');
@@ -492,10 +495,11 @@
   // ===================== \uccab \ud654 =====================
   var first;
   if (VIA_HASH) { // \uc6d0\ubcf8 \ud398\uc774\uc9c0\ub97c \uc9c1\uc811 \uc5f0 \uacbd\uc6b0: \ubcf8\ubb38\uc744 \uc2a4\ud06c\ub9bd\ud2b8\ub85c \ub2a6\uac8c \uadf8\ub9ac\ub294 \uc0ac\uc774\ud2b8\ub97c \uc704\ud574 \uc7a0\uc2dc \uae30\ub2e4\ub9bc
-    var w0 = Date.now();
+    var w0 = Date.now(), wH = -1, wT = Date.now();
     while (Date.now() - w0 < 8000) {
-      var bb = null; try { bb = findBody(document); } catch (e) { }
-      if (bb && (hanLen(bb.textContent) > 40 || (Date.now() - w0 > 2500 && hanLen(bb.textContent) >= 4))) break;
+      var bh = 0; try { var bb = findBody(document); bh = bb ? hanLen(lines(bb).join('')) : 0; } catch (e) { }
+      if (bh !== wH) { wH = bh; wT = Date.now(); } // \uad11\uace0 \ubb38\uad6c\ub294 \ube7c\uace0, \ubcf8\ubb38 \uae00\uc790\uac00 \ub354 \ub298\uc9c0 \uc54a\uc744 \ub54c\uae4c\uc9c0
+      if (bh > 150 || (bh > 40 && Date.now() - wT > 1200) || (Date.now() - w0 > 2500 && bh >= 4 && Date.now() - wT > 1500)) break;
       await new Promise(function (ok) { setTimeout(ok, 400); });
     }
   }
@@ -831,7 +835,7 @@
   // \uc6d0\ubcf8 HTML\uc5d0 \ubcf8\ubb38\uc774\ub098 \ub2e4\uc74c \ud654 \ubc84\ud2bc\uc774 \uc5c6\ub294 \uc0ac\uc774\ud2b8(\uc2a4\ud06c\ub9bd\ud2b8\ub85c \uadf8\ub9ac\ub294 \uc0ac\uc774\ud2b8)\uc6a9
   function getDocLive(url) {
     return new Promise(function (res, rej) {
-      var f = document.createElement('iframe'), t0 = Date.now(), fin = false;
+      var f = document.createElement('iframe'), t0 = Date.now(), fin = false, lastHl = -1, lastCh = Date.now();
       f.__nvKeep = 1;
       f.setAttribute('sandbox', 'allow-scripts allow-same-origin');
       f.style.cssText = 'position:fixed;left:-10000px;top:0;width:420px;height:900px;border:0;visibility:hidden';
@@ -845,9 +849,11 @@
         if (ready) {
           var ok = false;
           try {
-            var b = findBody(d), hl = b ? hanLen(b.textContent) : 0, el2 = Date.now() - t0, nx = hl ? findLink(d, url, 'next', linkCands(d, url)) : null;
+            var b = findBody(d), hl = b ? hanLen(lines(b).join('')) : 0, el2 = Date.now() - t0, nx = hl ? findLink(d, url, 'next', linkCands(d, url)) : null;
             // \uc9e7\uc740 \ud654(\ud55c\ub450 \ubb38\uc7a5)\ub3c4 \ub108\ubb34 \uc624\ub798 \uae30\ub2e4\ub9ac\uc9c0 \uc54a\uac8c: \ub2e4 \ubd88\ub7ec\uc628 \ub4a4 \uc7a0\uae50\ub9cc \ub354 \ubcf4\uace0 \ub118\uc5b4\uac10
-            ok = hl > 150 ? (nx || el2 > 3000) : hl >= 4 && d.readyState === 'complete' && (nx ? el2 > 2500 : el2 > 6000);
+            if (hl !== lastHl) { lastHl = hl; lastCh = Date.now(); }
+            var calm = Date.now() - lastCh; // \uae00\uc790 \uc218\uac00 \ud55c\ub3d9\uc548 \uadf8\ub300\ub85c\uba74 \ub2e4 \uadf8\ub824\uc9c4 \uac83
+            ok = hl > 150 ? (nx || el2 > 3000) : hl >= 4 && d.readyState === 'complete' && calm > 2500 && (nx ? el2 > 5000 : el2 > 8000);
           } catch (e) { }
           if (ok) return end(snap());
         }
