@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.4.7
+// @version      1.4.8
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -240,20 +240,22 @@
     return m.slice(0, 30) || '\uc54c \uc218 \uc5c6\uc74c';
   }
   // \uad6c\uae00\uc774 \uac00\ub054 \ud55c \uc694\uccad\ub9cc \uc720\ub09c\ud788 \uc624\ub798 \ubd99\uc7a1\uace0 \uc788\uc74c: \uc77c\uc815 \uc2dc\uac04 \ub2f5\uc774 \uc5c6\uc73c\uba74 \ub2e4\ub978 \uc9c0\uc5ed \uc11c\ubc84\uc5d0\ub3c4 \uac19\uc740 \uc694\uccad\uc744 \ubcf4\ub0b4 \uba3c\uc800 \uc628 \ub2f5\uc744 \uc500
-  var HEDGE_MS = 25000;
-  function hedgedSend(mk, alt, onHedge) {
+  var HEDGE_MS = 10000;
+  // alts: \ub2a6\uc744 \ub54c \uac19\uc774 \ubcf4\ub0bc \ub2e4\ub978 \uc9c0\uc5ed \ubaa9\ub85d. \uba3c\uc800 \uc628 \uc815\uc0c1 \ub2f5\uc744 \uc4f0\uace0 \ub098\uba38\uc9c0\ub294 \ucde8\uc18c
+  function hedgedSend(mk, alts, onHedge, onBad) {
     return new Promise(function (res, rej) {
       var boxes = [], pend = 0, done = false, hedged = false, bad = null, err = null, ht = null;
       function finish(f, v) { done = true; clearTimeout(ht); boxes.forEach(function (b) { if (b.abort) b.abort(); }); f(v); }
       function got(i, r, e) {
         pend--; if (done) return;
         if (r && r.status >= 200 && r.status < 300) { boxes[i] = {}; return finish(res, r); }
+        if (i > 0 && r && onBad) onBad(alts[i - 1], r);
         if (r && !bad) bad = r; if (e && !err) err = e;
         if (i === 0 && !hedged) { boxes[0] = {}; return r ? finish(res, r) : finish(rej, e); } // \ub2e4\ub978 \uc11c\ubc84\uc5d0 \ubcf4\ub0b4\uae30 \uc804 \uc624\ub958\ub294 \ud3c9\uc18c\ub300\ub85c \ucc98\ub9ac
         if (!pend) bad ? finish(res, bad) : finish(rej, err);
       }
       function start(i) { var o = mk(i); o._box = boxes[i] = {}; pend++; gxhr(o).then(function (r) { got(i, r); }, function (e) { got(i, null, e); }); }
-      if (alt != null) ht = setTimeout(function () { if (done) return; hedged = true; if (onHedge) onHedge(); start(1); }, HEDGE_MS);
+      if (alts.length) ht = setTimeout(function () { if (done) return; hedged = true; if (onHedge) onHedge(); alts.forEach(function (a, k) { start(k + 1); }); }, HEDGE_MS);
       start(0);
     });
   }
@@ -278,13 +280,16 @@
       try {
         var tk = await token(t > 0 && last && /API 401/.test(last.message));
         say(t ? '\ub2e4\uc2dc \uc694\uccad\ud558\ub294 \uc911 (' + whyShort(last) + ')' : '\uc751\ub2f5 \uae30\ub2e4\ub9ac\ub294 \uc911');
-        var body = JSON.stringify(req), alt = locs.filter(function (l) { return l !== locs[li] && l !== 'global'; })[0];
-        if (alt == null && locs[li] !== 'global') alt = 'global';
-        if (C.noHedge) alt = null;
+        var body = JSON.stringify(req), mm = model || C.m, badL = (C.badLoc || {})[mm] || {};
+        var alts = C.noHedge ? [] : ['global', 'us', 'us-central1', 'us-east5', 'europe-west4', 'asia-northeast1']
+          .filter(function (l) { return l !== locs[li] && !badL[l]; }).slice(0, 2);
         var r = await hedgedSend(function (i) {
-          return { method: 'POST', url: urlFor(model ? Object.assign({}, C, { m: model }) : C, i ? alt : locs[li]), anonymous: true, timeout: t === 0 ? 90000 : 120000,
+          return { method: 'POST', url: urlFor(model ? Object.assign({}, C, { m: model }) : C, i ? alts[i - 1] : locs[li]), anonymous: true, timeout: t === 0 ? 90000 : 120000,
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, data: body };
-        }, alt, function () { say('\uc751\ub2f5\uc774 \ub2a6\uc5b4 \ub2e4\ub978 \uad6c\uae00 \uc11c\ubc84\uc5d0\ub3c4 \uac19\uc774 \uc694\uccad\ud558\ub294 \uc911'); });
+        }, alts, function () { say('\uc751\ub2f5\uc774 \ub2a6\uc5b4 \ub2e4\ub978 \uad6c\uae00 \uc11c\ubc84 ' + alts.length + '\uacf3\uc5d0\ub3c4 \uac19\uc774 \uc694\uccad\ud558\ub294 \uc911'); },
+        function (loc, rr) { // \uc774 \ubaa8\ub378\uc774 \uc5c6\ub294 \uc9c0\uc5ed\uc740 \ub2e4\uc74c\ubd80\ud130 \ube7c\uae30
+          if (rr.status === 404) { var C2 = cfg() || C; C2.badLoc = C2.badLoc || {}; (C2.badLoc[mm] = C2.badLoc[mm] || {})[loc] = 1; gset('cfg', C2); C.badLoc = C2.badLoc; }
+        });
         var j; try { j = JSON.parse(r.responseText); } catch (e) { j = {}; }
         if (r.status === 404 && li < locs.length - 1) { li++; t--; continue; }
         if (r.status === 400 && req.generationConfig.thinkingConfig && /think/i.test(r.responseText || '')) {
