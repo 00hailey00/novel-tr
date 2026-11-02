@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.4.8
+// @version      1.4.9
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -31,10 +31,17 @@
   function gxhr(o) {
     return new Promise(function (res, rej) {
       var x = {};
-      for (var k in o) if (k !== '_box') x[k] = o[k];
+      for (var k in o) if (k !== '_box' && k !== 'first' && k !== 'idle' && k !== 'onbytes') x[k] = o[k];
       // \ud3f0\uc774 \uc7a0\ub4e4\uac70\ub098 \ud0ed\uc774 \ub4a4\ub85c \uac00\uba74 \uc694\uccad\uc774 \uc18c\ub9ac \uc5c6\uc774 \uc0ac\ub77c\uc838 \uc2dc\uac04 \ucd08\uacfc \uc54c\ub9bc\uc870\ucc28 \uc548 \uc62c \ub54c\uac00 \uc788\uc5b4\uc11c, \ub530\ub85c \uc2dc\uacc4\ub97c \ub460
-      var done = false, h = null, wd = setTimeout(function () { fin(rej, new Error('\uc751\ub2f5\uc774 \ub108\ubb34 \uc624\ub798 \uac78\ub824\uc694 (\uc2dc\uac04 \ucd08\uacfc)')); try { h && h.abort && h.abort(); } catch (e) { } }, (o.timeout || 60000) + 10000);
+      // \uc870\uae08\uc529 \ubc1b\ub294 \uc694\uccad(o.idle): \uccab \uae00\uc790\uae4c\uc9c0 o.first, \uadf8 \ub4a4\ub85c\ub294 o.idle \ub3d9\uc548 \uc544\ubb34\uac83\ub3c4 \uc548 \uc624\uba74 \ub04a\uc74c
+      var done = false, h = null, wd = null, seen = 0;
+      function arm(ms) { clearTimeout(wd); wd = setTimeout(function () { fin(rej, new Error('\uc751\ub2f5\uc774 \ub108\ubb34 \uc624\ub798 \uac78\ub824\uc694 (\uc2dc\uac04 \ucd08\uacfc)')); try { h && h.abort && h.abort(); } catch (e) { } }, ms); }
+      arm(o.idle ? (o.first || 90000) : (o.timeout || 60000) + 10000);
       function fin(f, v) { if (done) return; done = true; clearTimeout(wd); f(v); }
+      if (o.idle || o.onbytes) x.onprogress = function (r) {
+        var t = r && typeof r.responseText === 'string' ? r.responseText : '', n = t.length || (r && r.loaded) || 0;
+        if (n > seen) { seen = n; if (o.idle) arm(o.idle); if (o.onbytes) o.onbytes(t); }
+      };
       x.onload = function (r) { fin(res, r); };
       x.onerror = function () { fin(rej, new Error('\ub124\ud2b8\uc6cc\ud06c \uc624\ub958')); };
       x.ontimeout = function () { fin(rej, new Error('\uc751\ub2f5\uc774 \ub108\ubb34 \uc624\ub798 \uac78\ub824\uc694 (\uc2dc\uac04 \ucd08\uacfc)')); };
@@ -226,7 +233,7 @@
       : /^(us|eu)$/.test(loc) ? 'aiplatform.' + loc + '.rep.googleapis.com'
       : loc + '-aiplatform.googleapis.com';
     return 'https://' + host + '/v1/projects/' + encodeURIComponent(C.sa.project_id) + '/locations/' + encodeURIComponent(loc) +
-      '/publishers/google/models/' + encodeURIComponent(C.m) + ':generateContent';
+      '/publishers/google/models/' + encodeURIComponent(C.m) + (C.stream ? ':streamGenerateContent?alt=sse' : ':generateContent');
   }
   function sleep(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
   function whyShort(e) {
@@ -240,26 +247,48 @@
     return m.slice(0, 30) || '\uc54c \uc218 \uc5c6\uc74c';
   }
   // \uad6c\uae00\uc774 \uac00\ub054 \ud55c \uc694\uccad\ub9cc \uc720\ub09c\ud788 \uc624\ub798 \ubd99\uc7a1\uace0 \uc788\uc74c: \uc77c\uc815 \uc2dc\uac04 \ub2f5\uc774 \uc5c6\uc73c\uba74 \ub2e4\ub978 \uc9c0\uc5ed \uc11c\ubc84\uc5d0\ub3c4 \uac19\uc740 \uc694\uccad\uc744 \ubcf4\ub0b4 \uba3c\uc800 \uc628 \ub2f5\uc744 \uc500
-  var HEDGE_MS = 10000;
-  // alts: \ub2a6\uc744 \ub54c \uac19\uc774 \ubcf4\ub0bc \ub2e4\ub978 \uc9c0\uc5ed \ubaa9\ub85d. \uba3c\uc800 \uc628 \uc815\uc0c1 \ub2f5\uc744 \uc4f0\uace0 \ub098\uba38\uc9c0\ub294 \ucde8\uc18c
-  function hedgedSend(mk, alts, onHedge, onBad) {
+  var HEDGE_MS = 25000;
+  // \uc544\uc8fc \ub290\ub9b4 \ub54c\ub9cc: 25\ucd08 \ub3d9\uc548 \uae00\uc790\uac00 \ud558\ub098\ub3c4 \uc548 \uc624\uba74 \ub2e4\ub978 \uc9c0\uc5ed \uc11c\ubc84 2\uacf3\uc5d0\ub3c4 \uac19\uc740 \uc694\uccad. \uba3c\uc800 \uae00\uc790\ub97c \ubcf4\ub0b4\uae30 \uc2dc\uc791\ud55c \ucabd\ub9cc \ub0a8\uae30\uace0 \ub098\uba38\uc9c0\ub294 \ucde8\uc18c
+  function hedgedSend(mk, alts, onHedge, onBad, onText) {
     return new Promise(function (res, rej) {
-      var boxes = [], pend = 0, done = false, hedged = false, bad = null, err = null, ht = null;
+      var boxes = [], pend = 0, done = false, hedged = false, bad = null, err = null, ht = null, win = -1;
       function finish(f, v) { done = true; clearTimeout(ht); boxes.forEach(function (b) { if (b.abort) b.abort(); }); f(v); }
       function got(i, r, e) {
         pend--; if (done) return;
-        if (r && r.status >= 200 && r.status < 300) { boxes[i] = {}; return finish(res, r); }
+        if (r && r.status >= 200 && r.status < 300 && (win < 0 || win === i)) { boxes[i] = {}; return finish(res, r); }
         if (i > 0 && r && onBad) onBad(alts[i - 1], r);
         if (r && !bad) bad = r; if (e && !err) err = e;
+        if (i === win) win = -1;
         if (i === 0 && !hedged) { boxes[0] = {}; return r ? finish(res, r) : finish(rej, e); } // \ub2e4\ub978 \uc11c\ubc84\uc5d0 \ubcf4\ub0b4\uae30 \uc804 \uc624\ub958\ub294 \ud3c9\uc18c\ub300\ub85c \ucc98\ub9ac
         if (!pend) bad ? finish(res, bad) : finish(rej, err);
       }
-      function start(i) { var o = mk(i); o._box = boxes[i] = {}; pend++; gxhr(o).then(function (r) { got(i, r); }, function (e) { got(i, null, e); }); }
-      if (alts.length) ht = setTimeout(function () { if (done) return; hedged = true; if (onHedge) onHedge(); alts.forEach(function (a, k) { start(k + 1); }); }, HEDGE_MS);
+      function start(i) {
+        var o = mk(i); o._box = boxes[i] = {}; pend++;
+        o.onbytes = function (t) {
+          if (done) return;
+          if (win < 0) { win = i; clearTimeout(ht); if (hedged) boxes.forEach(function (b, k) { if (k !== i && b.abort) { b.abort(); boxes[k] = {}; } }); }
+          if (win === i && onText) onText(t);
+        };
+        gxhr(o).then(function (r) { got(i, r); }, function (e) { got(i, null, e); });
+      }
+      if (alts.length) ht = setTimeout(function () { if (done || win >= 0) return; hedged = true; if (onHedge) onHedge(); alts.forEach(function (a, k) { start(k + 1); }); }, HEDGE_MS);
       start(0);
     });
   }
-  async function callApi(text, temp, sys, onStatus, model) {
+  // \uc870\uae08\uc529 \ubc1b\uc740 \uc751\ub2f5(SSE: "data: {...}" \uc904\ub4e4)\uc5d0\uc11c \ubc88\uc5ed \uae00\uc790\ub9cc \ubaa8\uc74c
+  function sseParse(t) {
+    var out = '', fin = null, block = null, any = false;
+    String(t).split(/\r?\n/).forEach(function (l) {
+      var m = l.match(/^data:\s*(.*)$/); if (!m) return;
+      var j; try { j = JSON.parse(m[1]); } catch (e) { return; } any = true;
+      var c = j.candidates && j.candidates[0];
+      if (c && c.content && c.content.parts) c.content.parts.forEach(function (p) { if (!p.thought && p.text) out += p.text; });
+      if (c && c.finishReason) fin = c.finishReason;
+      if (j.promptFeedback && j.promptFeedback.blockReason) block = j.promptFeedback.blockReason;
+    });
+    return { any: any, text: out, finishReason: fin, block: block };
+  }
+  async function callApi(text, temp, sys, onStatus, model, onDelta) {
     var SAFE = ['OFF', 'BLOCK_NONE', 'BLOCK_ONLY_HIGH'];
     var say = onStatus || function () { };
     var C = cfg();
@@ -283,14 +312,17 @@
         var body = JSON.stringify(req), mm = model || C.m, badL = (C.badLoc || {})[mm] || {};
         var alts = C.noHedge ? [] : ['global', 'us', 'us-central1', 'us-east5', 'europe-west4', 'asia-northeast1']
           .filter(function (l) { return l !== locs[li] && !badL[l]; }).slice(0, 2);
+        var C3 = Object.assign({}, C, { stream: 1 }); if (model) C3.m = model;
         var r = await hedgedSend(function (i) {
-          return { method: 'POST', url: urlFor(model ? Object.assign({}, C, { m: model }) : C, i ? alts[i - 1] : locs[li]), anonymous: true, timeout: t === 0 ? 90000 : 120000,
+          return { method: 'POST', url: urlFor(C3, i ? alts[i - 1] : locs[li]), anonymous: true, timeout: 300000, first: t === 0 ? 90000 : 120000, idle: 40000,
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, data: body };
-        }, alts, function () { say('\uc751\ub2f5\uc774 \ub2a6\uc5b4 \ub2e4\ub978 \uad6c\uae00 \uc11c\ubc84 ' + alts.length + '\uacf3\uc5d0\ub3c4 \uac19\uc774 \uc694\uccad\ud558\ub294 \uc911'); },
+        }, alts, function () { say('\uc751\ub2f5\uc774 \ub108\ubb34 \ub2a6\uc5b4 \ub2e4\ub978 \uad6c\uae00 \uc11c\ubc84 ' + alts.length + '\uacf3\uc5d0\ub3c4 \uac19\uc774 \uc694\uccad\ud558\ub294 \uc911'); },
         function (loc, rr) { // \uc774 \ubaa8\ub378\uc774 \uc5c6\ub294 \uc9c0\uc5ed\uc740 \ub2e4\uc74c\ubd80\ud130 \ube7c\uae30
           if (rr.status === 404) { var C2 = cfg() || C; C2.badLoc = C2.badLoc || {}; (C2.badLoc[mm] = C2.badLoc[mm] || {})[loc] = 1; gset('cfg', C2); C.badLoc = C2.badLoc; }
+        }, function (txt) { // \uae00\uc790\uac00 \uc624\ub294 \ub300\ub85c \ud654\uba74\uc5d0
+          var pz = sseParse(txt); if (pz.text) { say('\ubc88\uc5ed \ubc1b\ub294 \uc911'); if (onDelta) onDelta(pz.text); }
         });
-        var j; try { j = JSON.parse(r.responseText); } catch (e) { j = {}; }
+        var j; try { j = JSON.parse(r.responseText); if (Array.isArray(j)) j = j[0] || {}; } catch (e) { j = {}; }
         if (r.status === 404 && li < locs.length - 1) { li++; t--; continue; }
         if (r.status === 400 && req.generationConfig.thinkingConfig && /think/i.test(r.responseText || '')) {
           if ((C.thinkIdx || 0) < THINK.length - 1) { C.thinkIdx = (C.thinkIdx || 0) + 1; req.generationConfig.thinkingConfig = { thinkingLevel: THINK[C.thinkIdx] }; }
@@ -303,11 +335,16 @@
         }
         if (r.status >= 200 && r.status < 300 && locs[li] !== C.loc) { C.loc = locs[li]; gset('cfg', C); }
         if (r.status < 200 || r.status >= 300) throw new Error('API ' + r.status + ': ' + ((j.error && j.error.message) || r.responseText || '').slice(0, 300));
-        var cand = j.candidates && j.candidates[0];
-        var out = cand && cand.content && cand.content.parts
-          ? cand.content.parts.filter(function (p) { return !p.thought; }).map(function (p) { return p.text || ''; }).join('') : '';
-        if (cand && cand.finishReason === 'MAX_TOKENS') throw new Error('MAX_TOKENS: \ucd9c\ub825\uc774 \uc798\ub9bc');
-        if (!out) throw new Error('\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c (' + ((cand && cand.finishReason) || (j.promptFeedback && j.promptFeedback.blockReason) || '\uc54c \uc218 \uc5c6\uc74c') + ')');
+        var sp = sseParse(r.responseText || ''), cand, out, why;
+        if (sp.any) { out = sp.text; why = sp.finishReason; if (!out) why = sp.block || why; }
+        else { // \ud55c \ubc88\uc5d0 \ubc1b\uc740 \uc751\ub2f5(\uc608\uc804 \ubc29\uc2dd)
+          cand = j.candidates && j.candidates[0]; why = cand && cand.finishReason;
+          out = cand && cand.content && cand.content.parts ? cand.content.parts.filter(function (p) { return !p.thought; }).map(function (p) { return p.text || ''; }).join('') : '';
+          if (!out) why = (j.promptFeedback && j.promptFeedback.blockReason) || why;
+        }
+        if (why === 'MAX_TOKENS') throw new Error('MAX_TOKENS: \ucd9c\ub825\uc774 \uc798\ub9bc');
+        if (out && why && why !== 'STOP' && BLOCKED.test(why)) throw new Error('\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c (' + why + ')'); // \uc4f0\ub2e4\uac00 \uc911\uac04\uc5d0 \ub9c9\ud798
+        if (!out) throw new Error('\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c (' + (why || '\uc54c \uc218 \uc5c6\uc74c') + ')');
         return out;
       } catch (e) {
         last = e;
@@ -361,15 +398,16 @@
   // \uc0ac\uc774\ud2b8\uac00 \ubcf8\ubb38 \ub300\uc2e0 \ub744\uc6b4 \uc548\ub0b4\ubb38 ("\uc774 \ud654 \ub0b4\uc6a9\uc774 \uc5c6\uc74c/\uc218\ub9ac \uc911/\ubaa9\ub85d\uc5d0\uc11c \ub2e4\uc2dc \uace0\ub974\uc138\uc694" \ub4f1)
   var MISSING = /\u7ae0[\u7bc0\u8282]?(\u5167\u5bb9|\u5185\u5bb9)?(\u7f3a\u5931|\u4e0d\u5b58\u5728|\u672a\u627e\u5230|\u627e\u4e0d\u5230)|\u5167\u5bb9\u7f3a\u5931|\u5185\u5bb9\u7f3a\u5931|\u6b63\u5728\u4fee[\u5fa9\u590d]|\u5c1a\u672a\u6536[\u9304\u5f55]|[\u8acb\u8bf7][\u5f9e\u4ece]\u76ee[\u9304\u5f55]\u91cd\u65b0[\u9078\u9009]|\u672c\u7ae0[\u7bc0\u8282]?(\u4e0d\u5b58\u5728|\u5df2[\u522a\u5220]\u9664)|\u7ae0[\u7bc0\u8282]\u5df2[\u522a\u5220]\u9664|[\u5167\u5185]\u5bb9(\u6b63\u5728)?\u66f4\u65b0\u4e2d|\u66ab\u7121\u5167\u5bb9|\u6682\u65e0\u5185\u5bb9/;
   function siteNotice(ls) { var j = ls.join(''); return hanLen(j) < 150 && MISSING.test(j) ? j : ''; }
-  async function callLines(ls, temp, say, model) {
-    var out = (await callApi(ls.join('\n'), temp, null, say, model)).split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+  async function callLines(ls, temp, say, model, onDelta) {
+    var out = (await callApi(ls.join('\n'), temp, null, say, model, onDelta)).split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
     if (looksRefusal(out, ls)) throw new Error('\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c (REFUSAL)');
     return out;
   }
-  async function translateLines(ls, depth, temp, say) {
+  async function translateLines(ls, depth, temp, say, onDelta) {
     try {
-      return await callLines(ls, temp, say);
+      return await callLines(ls, temp, say, null, onDelta);
     } catch (e) {
+      if (onDelta) onDelta(null); // \ubcf4\uc5ec \uc8fc\ub358 \uc911\uac04 \uacb0\uacfc\ub294 \uc9c0\uc6c0
       if (!BLOCKED.test(e.message) || depth > 4) throw e;
       var alt = (cfg() || {}).alt;
       if (ls.length === 1) { // \ub05d\uae4c\uc9c0 \ub9c9\ud788\ub294 \ud55c \uc904: \ub300\uccb4 \ubaa8\ub378\uc774 \uc788\uc73c\uba74 \ud55c \ubc88 \ub354, \uadf8\ub798\ub3c4 \uc548 \ub418\uba74 \uc6d0\ubb38
@@ -386,11 +424,11 @@
       return [].concat.apply([], res);
     }
   }
-  // \uc6d0\ubb38\uc744 \ub369\uc5b4\ub9ac\ub85c \ub098\ub214. \uccab \ub369\uc5b4\ub9ac\ub294 \uc9e7\uac8c(\ube68\ub9ac \ubcf4\uc5ec\uc8fc\ub824\uace0), \uccab \uc904\uc740 \uc81c\ubaa9
+  // \uc6d0\ubb38\uc744 800\uc790 \uc548\ud30e \ub369\uc5b4\ub9ac\ub85c \ub098\ub214 (\ub124 \ub369\uc5b4\ub9ac\uc529 \ub3d9\uc2dc\uc5d0 \ubc88\uc5ed), \uccab \uc904\uc740 \uc81c\ubaa9
   function makeChunks(ch) {
     var src = ['[\uc81c\ubaa9] ' + ch.title].concat(ch.lines), chunks = [], cur = [], n = 0;
     src.forEach(function (l) {
-      if (n + l.length > (chunks.length ? 1600 : 800) && cur.length) { chunks.push(cur); cur = []; n = 0; }
+      if (n + l.length > 800 && cur.length) { chunks.push(cur); cur = []; n = 0; }
       cur.push(l); n += l.length + 1;
     });
     if (cur.length) chunks.push(cur);
@@ -425,7 +463,7 @@
         var i = nextI++;
         if (ctl.cancel) throw new Error('\ucde8\uc18c\ub428');
         var r;
-        try { r = ctl.keep && ctl.keep[i] ? { lines: ctl.keep[i], title: title } : splitTitle(await translateLines(chunks[i], 0, temp, say), title); }
+        try { r = ctl.keep && ctl.keep[i] ? { lines: ctl.keep[i], title: title } : splitTitle(await translateLines(chunks[i], 0, temp, say, (function (ci) { return function (txt) { if (!ctl.cancel && ctl.onPartial) ctl.onPartial(ci, txt); }; })(i)), title); }
         catch (e) { failed = true; throw e; }
         if (ctl.cancel) throw new Error('\ucde8\uc18c\ub428');
         if (i === 0) title = r.title;
@@ -433,10 +471,11 @@
         onPart && onPart(i, r.lines, title);
       }
     }
-    var workers = [worker(), worker()]; // \ub450 \ub369\uc5b4\ub9ac\uc529 \ub3d9\uc2dc\uc5d0
+    var W = 4, mk = function () { var a = []; for (var w = 0; w < W; w++) a.push(worker()); return a; };
+    var workers = mk(); // \ub124 \ub369\uc5b4\ub9ac\uc529 \ub3d9\uc2dc\uc5d0
     for (;;) {
       await Promise.all(workers);
-      if (!failed && nextI < lim()) { workers = [worker(), worker()]; continue; } // \ubbf8\ub9ac \ubc88\uc5ed \uc911\uc5d0 \ud654\ub97c \uc5f4\uc5b4 \uc81c\ud55c\uc774 \ud480\ub9b0 \uacbd\uc6b0
+      if (!failed && nextI < lim()) { workers = mk(); continue; } // \ubbf8\ub9ac \ubc88\uc5ed \uc911\uc5d0 \ud654\ub97c \uc5f4\uc5b4 \uc81c\ud55c\uc774 \ud480\ub9b0 \uacbd\uc6b0
       break;
     }
     for (var q = 0; q < chunks.length; q++) if (!res[q]) return { partial: true, title: title }; // \uc55e\ubd80\ubd84\ub9cc \ubbf8\ub9ac \ubc88\uc5ed\ud55c \uc0c1\ud0dc (\uc800\uc7a5 \uc548 \ud568)
@@ -590,6 +629,7 @@
     '.grp p{font-size:var(--fs);line-height:var(--lh);margin-bottom:var(--ps);text-indent:var(--ind);word-break:keep-all;overflow-wrap:anywhere;letter-spacing:-.012em;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;border-radius:6px;transition:background .2s}',
     '.grp p.src{color:var(--mut);opacity:.55}',
     '.grp p.tr{animation:fi .5s cubic-bezier(.2,.8,.2,1) both}',
+    '.grp p.tr.live{animation:none}',
     '.grp p.hold{background:color-mix(in srgb,var(--ac) 12%,transparent)}',
     '.grp p.busy{animation:pl 1.2s ease-in-out infinite}',
     '@keyframes fi{from{opacity:0;transform:translateY(5px)}}',
@@ -853,8 +893,9 @@
   // ===================== \ud654 \ud45c\uc2dc =====================
   var pending = {}, chapters = [], appending = false;
   function startTranslate(ch, keep, title, limit) {
-    if (!pending[ch.url]) pending[ch.url] = { ch: ch, parts: {}, title: null, done: null, subs: [], ctl: { keep: keep, title: title, limit: limit }, t0: Date.now() };
+    if (!pending[ch.url]) pending[ch.url] = { ch: ch, parts: {}, title: null, done: null, subs: [], psubs: [], ctl: { keep: keep, title: title, limit: limit }, t0: Date.now() };
     var P = pending[ch.url];
+    P.ctl.onPartial = function (ci, txt) { P.lastProg = Date.now(); P.psubs.forEach(function (f) { f(ci, txt); }); };
     if (!P.done) {
       P.done = translate(ch, function (ci, ls, t) { P.title = t; P.parts[ci] = ls; P.lastProg = Date.now(); P.subs.forEach(function (f) { f(ci, ls, t); }); }, P.ctl);
       P.done.then(function () { P.finished = true; }, function () { P.finished = true; });
@@ -1032,8 +1073,29 @@
       g.innerHTML = '';
       ls.forEach(function (l, k) { var p = el('p', 'tr', l); p.style.animationDelay = Math.min(k, 12) * 25 + 'ms'; p._grp = whole ? -1 : ci; g.appendChild(p); });
     }
+    // \uae00\uc790\uac00 \uc624\ub294 \ub300\ub85c: \ubc88\uc5ed\ub41c \uc904\uc740 \ubc88\uc5ed\uc73c\ub85c, \uc544\uc9c1 \uc548 \uc628 \uc904\uc740 \uc6d0\ubb38 \uadf8\ub300\ub85c
+    var pend0 = {}, praf = null;
+    function partialGroup(ci, txt) {
+      if (gi[ci] || !grps[ci]) return;
+      pend0[ci] = txt;
+      if (praf) return;
+      praf = setTimeout(function () {
+        praf = null;
+        Object.keys(pend0).forEach(function (k) {
+          var c = +k, tx = pend0[k], g = grps[c]; delete pend0[k];
+          if (gi[c] || !g) return;
+          var src = c === 0 ? item.chunks[0].slice(1) : item.chunks[c];
+          if (tx == null) { g.innerHTML = ''; src.forEach(function (l) { g.appendChild(el('p', 'src', l)); }); return; }
+          var ls = tx.split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+          ls = ls.filter(function (l) { var m = l.match(/^\[\uc81c\ubaa9\]\s*(.*)$/); if (m && c === 0 && m[1]) setTitle(item, m[1]); return !m; });
+          g.innerHTML = '';
+          ls.forEach(function (l) { g.appendChild(el('p', 'tr live', l)); });
+          src.slice(ls.length).forEach(function (l) { g.appendChild(el('p', 'src', l)); });
+        });
+      }, 250);
+    }
     Object.keys(P.parts).forEach(function (ci) { fillGroup(+ci, P.parts[ci], P.title); });
-    P.subs.push(fillGroup);
+    P.subs.push(fillGroup); P.psubs.push(partialGroup);
     updateTail();
     return P.done.then(function (v) {
       if (v && v.partial) { clearInterval(tm); return restartTranslate(item); } // \uc81c\ud55c\uc774 \ud480\ub9ac\uae30 \uc9c1\uc804\uc5d0 \ub05d\ub09c \uacbd\uc6b0
