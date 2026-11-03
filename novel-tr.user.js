@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.5.4
+// @version      1.5.5
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -531,9 +531,9 @@
     light: { n: '\ubc1d\uac8c', bg: '#fbfbfa', fg: '#1f2023', mut: '#8b8d93', card: '#ffffff', bd: '#e6e6e3', ac: '#3b6fe0' },
     paper: { n: '\uc885\uc774', bg: '#f5efe2', fg: '#3d342a', mut: '#9a8d78', card: '#fbf7ee', bd: '#e2d8c3', ac: '#a35a2c' },
     green: { n: '\uc5f0\ub450', bg: '#e6eedb', fg: '#26301f', mut: '#7c8a6c', card: '#eff5e7', bd: '#ccd9ba', ac: '#3b7a3a' },
-    gray: { n: '\ud68c\uc0c9', bg: '#2f3237', fg: '#dfe1e5', mut: '#9a9ea6', card: '#3a3e44', bd: '#4a4f57', ac: '#8fb2ff' },
-    dark: { n: '\uc5b4\ub461\uac8c', bg: '#151618', fg: '#d4d5d8', mut: '#86888e', card: '#202226', bd: '#33363b', ac: '#7aa5ff' },
-    black: { n: '\ube14\ub799', bg: '#000000', fg: '#b9babd', mut: '#6e7075', card: '#121314', bd: '#26282b', ac: '#5d8ff0' }
+    gray: { n: '\ud68c\uc0c9', bg: '#2f3237', fg: '#c4c5c8', mut: '#8f939a', card: '#383c42', bd: '#474b53', ac: '#94aede', dark: 1 },
+    dark: { n: '\uc5b4\ub461\uac8c', bg: '#18191b', fg: '#b4b2ac', mut: '#7f7e79', card: '#212225', bd: '#303236', ac: '#86a2d0', dark: 1 }, // \uae00\uc528\ub97c \ub0ae\ucdb0 \ub208\ubd80\uc2ec \uc904\uc784 (\ub300\ube44 \uc57d 8:1)
+    black: { n: '\ube14\ub799', bg: '#0b0b0b', fg: '#a3a29e', mut: '#6c6b68', card: '#151516', bd: '#242426', ac: '#7591c2', dark: 1 }
   };
   var FONTS = {
     pretendard: { n: '\ud504\ub9ac\ud150\ub2e4\ub4dc', f: '"Pretendard Variable",Pretendard,-apple-system,sans-serif',
@@ -631,6 +631,8 @@
     '.grp p.src{color:var(--mut);opacity:.55}',
     '.grp p.tr{animation:fi .5s cubic-bezier(.2,.8,.2,1) both}',
     '.grp p.tr.live{animation:none}',
+    '.app.dk .wrap{font-weight:370;-webkit-font-smoothing:antialiased}',
+    '.app.dk .cht{font-weight:600}',
     '.grp p.hold{background:color-mix(in srgb,var(--ac) 12%,transparent)}',
     '.grp p.busy{animation:pl 1.2s ease-in-out infinite}',
     '@keyframes fi{from{opacity:0;transform:translateY(5px)}}',
@@ -810,6 +812,7 @@
       '--ui': FONTS.pretendard.f, '--fs': prefs.fs + 'px', '--lh': prefs.lh, '--ps': prefs.ps + 'em', '--mw': prefs.mw + 'px',
       '--pad': prefs.pad + 'px', '--ind': prefs.ind ? '1em' : '0' };
     Object.keys(v).forEach(function (k) { app.style.setProperty(k, v[k]); });
+    app.classList.toggle('dk', !!t.dark); // \uc5b4\ub450\uc6b4 \ud14c\ub9c8: \uae00\uc790\ub97c \uc0b4\uc9dd \uac00\ub298\uac8c (\ubc1d\uc740 \uae00\uc528\uac00 \ubc88\uc838 \ubcf4\uc774\ub294 \uac83 \uc904\uc784)
     document.documentElement.style.background = t.bg;
     var mc = document.querySelector('meta[name=theme-color]');
     if (!mc) { mc = document.createElement('meta'); mc.name = 'theme-color'; document.head.appendChild(mc); }
