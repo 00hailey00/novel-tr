@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.5.7
+// @version      1.5.8
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -758,7 +758,11 @@
     '.app.sheet .scrim{opacity:1;pointer-events:auto}',
     '.pn{position:fixed;left:0;right:0;bottom:0;z-index:6;max-height:86vh;overflow-y:auto;overscroll-behavior:contain;background:var(--card);border-radius:24px 24px 0 0;padding:8px 22px calc(26px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(0,0,0,.25);transform:translateY(105%);transition:transform .34s cubic-bezier(.2,.8,.2,1),bottom .2s ease;font-family:var(--ui);font-size:15px}',
     '.app.sheet .pn{transform:none}',
-    '.pn .grab{width:42px;height:5px;border-radius:3px;background:var(--bd);margin:6px auto 14px}',
+    '.pn .grab{position:relative;width:42px;height:5px;border-radius:3px;background:var(--bd);margin:6px auto 14px;touch-action:none}',
+    '.pn .grab::before{content:"";position:absolute;left:-60px;right:-60px;top:-16px;bottom:-14px}', // \uc190\uac00\ub77d\uc73c\ub85c \uc7a1\uae30 \uc27d\uac8c \ub113\uc740 \uc601\uc5ed
+    '.pn .hd,.pn .grab{touch-action:none;-webkit-user-select:none;user-select:none}',
+    '.pn.full{max-height:calc(100vh - 12px - env(safe-area-inset-top))}',
+    '.pn.drag{transition:none}',
     '.pn .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}',
     '.pn h3{font-size:19px;font-weight:700}',
     '.pn .x{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--mut)}',
@@ -935,7 +939,7 @@
   });
   try { history.pushState({ nvB: 1 }, '', location.href); } catch (e) { }
   function setUI(on) { if (on) { app.classList.add('ui'); pushLayer('ui'); } else dropLayer('ui'); }
-  function showSheet() { app.classList.add('sheet'); pushLayer('sheet'); }
+  function showSheet() { pn.classList.remove('full'); pn.style.transform = ''; app.classList.add('sheet'); pushLayer('sheet'); }
 
   function applyPrefs() {
     var t = THEMES[themeKey()];
@@ -1938,8 +1942,21 @@
     var sel = String(window.getSelection ? getSelection() : '');
     if (!sel) setUI(!app.classList.contains('ui'));
   }
+  // \uc544\ub798 \ucc3d \uc190\uc7a1\uc774(\ub610\ub294 \uc81c\ubaa9 \uc904)\ub97c \ub04c\uc5b4\uc11c: \uc544\ub798\ub85c \ub0b4\ub9ac\uba74 \ub2eb\uae30, \uc704\ub85c \uc62c\ub9ac\uba74 \ud06c\uac8c
+  var sdrag = null;
+  function sheetGrab(e) {
+    if (!app.classList.contains('sheet')) return false;
+    var ps = pathOf(e), hit = false;
+    for (var i = 0; i < ps.length; i++) {
+      var n = ps[i]; if (n === pn) break;
+      if (n.tagName === 'BUTTON' || n.tagName === 'INPUT') return false;
+      if (n.classList && (n.classList.contains('grab') || n.classList.contains('hd'))) hit = n.classList.contains('grab') ? 'grab' : hit || 'hd';
+    }
+    return ps.indexOf(pn) >= 0 ? hit : false;
+  }
   window.addEventListener('pointerdown', function (e) {
     if (!inUI(e)) return;
+    if (sheetGrab(e)) { e.stopImmediatePropagation(); sdrag = { y: e.clientY, t: Date.now(), h: pn.offsetHeight, dy: 0, grab: sheetGrab(e) === 'grab' }; if (e.cancelable) e.preventDefault(); pn.classList.add('drag'); try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (x) { } return; }
     e.stopImmediatePropagation();
     down = { x: e.clientX, y: e.clientY, t: Date.now() }; lpFired = false; clearTimeout(lpT);
     var p = paraOf(e), wk = pageMode === 'lib' && app.classList.contains('page') && !app.classList.contains('sheet') ? pathOf(e).filter(function (n) { return n.classList && (n.classList.contains('tile') || n.classList.contains('cont')) && n.dataset.id; })[0] : null;
@@ -1949,17 +1966,33 @@
     else if (p && !app.classList.contains('sheet')) lpT = setTimeout(function () { lpFired = true; buzz(); openPara(p); }, 480);
   }, true);
   window.addEventListener('pointermove', function (e) {
+    if (sdrag) {
+      e.stopImmediatePropagation(); var dy = e.clientY - sdrag.y; sdrag.dy = dy;
+      if (dy >= 0) { pn.style.transform = 'translateY(' + dy + 'px)'; pn.style.maxHeight = ''; }
+      else { pn.style.transform = ''; pn.style.maxHeight = Math.min(window.innerHeight - 12, sdrag.h - dy) + 'px'; }
+      return;
+    }
     if (!down || !inUI(e)) return;
     if (Math.abs(e.clientX - down.x) > 10 || Math.abs(e.clientY - down.y) > 10) { clearTimeout(lpT); unpress(); }
   }, true);
+  function endDrag(cancel) {
+    var d = sdrag; sdrag = null; if (!d) return;
+    pn.classList.remove('drag'); pn.style.transform = ''; pn.style.maxHeight = '';
+    var v = d.dy / Math.max(1, Date.now() - d.t); lastPtr = Date.now();
+    if (cancel) return;
+    if (d.dy > 110 || (d.dy > 30 && v > 0.5)) { if (pn.classList.contains('full') && d.dy < 260 && v < 0.9) pn.classList.remove('full'); else closeSheet(); }
+    else if (d.dy < -40) pn.classList.add('full');
+    else if (Math.abs(d.dy) < 6 && d.grab) pn.classList.toggle('full'); // \uc190\uc7a1\uc774\ub97c \ud1a1 \uce58\uba74 \ud06c\uac8c/\uc6d0\ub798\ub300\ub85c
+  }
   window.addEventListener('pointerup', function (e) {
+    if (sdrag) { e.stopImmediatePropagation(); endDrag(); return; }
     if (!inUI(e)) return;
     e.stopImmediatePropagation(); clearTimeout(lpT); unpress();
     if (lpFired) { lpFired = false; down = null; lastPtr = Date.now(); return; }
     if (!down || Math.abs(e.clientX - down.x) > 12 || Math.abs(e.clientY - down.y) > 12 || Date.now() - down.t > 800) { down = null; return; }
     down = null; lastPtr = Date.now(); fire(e);
   }, true);
-  window.addEventListener('pointercancel', function (e) { if (inUI(e)) { clearTimeout(lpT); down = null; e.stopImmediatePropagation(); } }, true);
+  window.addEventListener('pointercancel', function (e) { if (sdrag) { endDrag(); return; } if (inUI(e)) { clearTimeout(lpT); down = null; e.stopImmediatePropagation(); } }, true);
   ['click', 'touchend'].forEach(function (type) {
     window.addEventListener(type, function (e) {
       if (!inUI(e)) return;
