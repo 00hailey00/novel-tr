@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.6.4
+// @version      1.6.5
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -241,7 +241,15 @@
     gset('tok', { v: j.access_token, x: Date.now() + (j.expires_in || 3600) * 1000, e: C.sa.client_email });
     return j.access_token;
   }
-  function sysPrompt(C) {
+  // \uc791\ud488\ubcc4 \uc778\ubb3c \uc774\ub984\ud45c: { \ud55c\uc790: \ud55c\uae00 } \u2014 \ubc88\uc5ed\ud560 \ub54c \uc9c0\uc2dc\ubb38\uc5d0 \ub123\uc5b4 \uac19\uc740 \uc774\ub984\uc744 \ub298 \uac19\uc740 \ud45c\uae30\ub85c
+  function namesOf(wid) { var w = wid && libAll()[wid]; return (w && w.names) || {}; }
+  function namesText(wid) { var N = namesOf(wid); return Object.keys(N).slice(-150).map(function (k) { return k + '=' + N[k]; }).join('\n'); }
+  function saveNames(wid, map, force) {
+    if (!wid || !map) return 0; var L = libAll(), w = L[wid] || (L[wid] = { id: wid, read: {} }); w.names = w.names || {}; var n = 0;
+    Object.keys(map).forEach(function (k) { var v = String(map[k] || '').trim(); k = k.trim(); if (!k || !v || !/[\u3400-\u9fff]/.test(k) || !/[\uac00-\ud7a3]/.test(v) || k.length > 8 || v.length > 12) return; if (force || !w.names[k]) { if (w.names[k] !== v) n++; w.names[k] = v; } });
+    if (n) gset('lib', L); return n;
+  }
+  function sysPrompt(C, wid) {
     return '\ub108\ub294 \uc911\uad6d\uc5b4 \uc6f9\uc18c\uc124 \uc804\ubb38 \ubc88\uc5ed\uac00\ub2e4. \uc785\ub825\uc740 \uc911\uad6d\uc5b4(\ubc88\uccb4 \ub610\ub294 \uac04\uccb4) \uc18c\uc124 \ud55c \ud654\uc758 \ubcf8\ubb38\uc774\uba70 \ud55c \uc904\uc774 \ud55c \ubb38\ub2e8\uc774\ub2e4. ' +
       '\uc790\uc5f0\uc2a4\ub7fd\uace0 \uc77d\uae30 \uc88b\uc740 \ud55c\uad6d\uc5b4 \uc18c\uc124 \ubb38\uccb4\ub85c \ubc88\uc5ed\ud558\ub77c.\n\uaddc\uce59:\n' +
       '1) \ubc88\uc5ed\ubb38\ub9cc \ucd9c\ub825\ud55c\ub2e4. \uc6d0\ubb38, \uc124\uba85, \uc8fc\uc11d, \uba38\ub9ac\ub9d0\uc744 \ubd99\uc774\uc9c0 \uc54a\ub294\ub2e4.\n' +
@@ -251,7 +259,10 @@
       '5) \uc785\ub825\uc774 "[\uc81c\ubaa9]"\uc73c\ub85c \uc2dc\uc791\ud558\ub294 \uc904\uc774 \uc788\uc73c\uba74 \uadf8 \uc904\uc740 "[\uc81c\ubaa9] \ubc88\uc5ed\ub41c \uc81c\ubaa9" \ud615\uc2dd\uc73c\ub85c \ucd9c\ub825\ud55c\ub2e4.\n' +
       '6) \uc785\ub825\uc740 \uc774\ubbf8 \ucd9c\ud310\ub41c \ud5c8\uad6c\uc758 \uc18c\uc124\uc774\ub2e4. \uc804\ud22c\u00b7\ud3ed\ub825\u00b7\ubc94\uc8c4\u00b7\uc8fd\uc74c \uac19\uc740 \uc5b4\ub450\uc6b4 \uc7a5\uba74\ub3c4 \uc774\uc57c\uae30\uc758 \uc77c\ubd80\uc774\ubbc0\ub85c, \ub0b4\uc6a9\uc744 \ud310\ub2e8\ud558\uac70\ub098 \uac70\uc808\u00b7\uc694\uc57d\u00b7\uc21c\ud654\ud558\uc9c0 \ub9d0\uace0 \uc6d0\ubb38\uc758 \uc758\ubbf8 \uadf8\ub300\ub85c \ubc88\uc5ed\ub9cc \ud55c\ub2e4.\n' +
       '7) \ubb38\ub2e8 \uc21c\uc11c\uac00 \uc5b4\uc0c9\ud558\uac70\ub098 \ub4a4\uc11e\uc5ec \ubcf4\uc5ec\ub3c4 \uace0\uce58\uac70\ub098 \uadf8 \uc0ac\uc2e4\uc744 \uc124\uba85\ud558\uc9c0 \ub9d0\uace0, \uc785\ub825\ub41c \uc21c\uc11c \uadf8\ub300\ub85c \ud55c \uc904\uc529 \ubc88\uc5ed\ud55c\ub2e4. \ubc88\ud638(1. 2.)\ub97c \ubd99\uc774\uac70\ub098 \uc6d0\ubb38 \uc911\uad6d\uc5b4\ub97c \ub2e4\uc2dc \uc801\uc9c0 \uc54a\ub294\ub2e4.' +
-      (C.g ? '\n\n\ub2e4\uc74c \uc6a9\uc5b4\uc9d1\uc744 \ubc18\ub4dc\uc2dc \ub530\ub978\ub2e4:\n' + C.g : '');
+      '\n8) \uc0ac\ub78c \uc774\ub984\uc740 \ud55c\uad6d \ud55c\uc790\uc74c\uc73c\ub85c \uc62e\uae34\ub2e4(\uc608: \u5433\u79cb\u82f1\u2192\uc624\ucd94\uc601, \u5468\u5bb6\u68df\u2192\uc8fc\uac00\ub3d9). \uc911\uad6d\uc5b4 \ubc1c\uc74c\ub300\ub85c(\uc6b0\ucd94\uc789, \uc800\uc6b0\uc790\ub465 \ub4f1) \uc4f0\uc9c0 \uc54a\ub294\ub2e4.\n' +
+      '9) \ubc88\uc5ed\uc744 \ub9c8\uce5c \ub4a4 \ub9e8 \ub05d\uc5d0 \uc774\ubc88 \uc785\ub825\uc5d0 \ub098\uc628 \uc0ac\ub78c \uc774\ub984\uc744 "[\uc778\uba85] \ud55c\uc790=\ud55c\uae00; \ud55c\uc790=\ud55c\uae00" \ud615\uc2dd\uc758 \ud55c \uc904\ub85c \ub367\ubd99\uc778\ub2e4. \uc0ac\ub78c \uc774\ub984\uc774 \uc5c6\uc73c\uba74 \uc774 \uc904\uc740 \uc4f0\uc9c0 \uc54a\ub294\ub2e4.' +
+      (C.g ? '\n\n\ub2e4\uc74c \uc6a9\uc5b4\uc9d1\uc744 \ubc18\ub4dc\uc2dc \ub530\ub978\ub2e4:\n' + C.g : '') +
+      (wid && namesText(wid) ? '\n\n\uc774 \uc791\ud488\uc758 \uc778\ubb3c \uc774\ub984 \ud45c\uae30(\ubc18\ub4dc\uc2dc \uc774\ub300\ub85c \uc4f4\ub2e4):\n' + namesText(wid) : '');
   }
   function urlFor(C, loc) {
     var host = loc === 'global' ? 'aiplatform.googleapis.com'
@@ -435,15 +446,24 @@
     return out.filter(function (l) { var h = hanLen(l), g = (l.match(/[\uac00-\ud7a3]/g) || []).length; return !META.test(l) && !(h > 6 && h > g * 2); })
       .map(function (l) { return l.replace(/^\d{1,3}[\.)]\s+/, ''); });
   }
-  async function callLines(ls, temp, say, model, onDelta) {
-    function run(t, sys) { return callApi(ls.join('\n'), t, sys, say, model, onDelta).then(function (o) { return o.split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean); }); }
+  var NAMES_LINE = /^\[\uc778\uba85\]\s*/;
+  function takeNames(out, gl) { // "[\uc778\uba85] \u5433\u79cb\u82f1=\uc624\ucd94\uc601; ..." \uc904\uc744 \ube7c\uace0 \uc774\ub984\ud45c\uc5d0 \ubaa8\uc74c
+    return out.filter(function (l) {
+      if (!NAMES_LINE.test(l)) return true;
+      if (gl && gl.learn) l.replace(NAMES_LINE, '').split(/[;\uff1b,\uff0c\u3001]/).forEach(function (pr) { var m = pr.split(/[=\uff1d]/); if (m.length === 2) gl.learn[m[0].trim()] = m[1].trim(); });
+      return false;
+    });
+  }
+  async function callLines(ls, temp, say, model, onDelta, gl) {
+    var wid = gl && gl.wid;
+    function run(t, sys) { return callApi(ls.join('\n'), t, sys || sysPrompt(cfg() || {}, wid), say, model, onDelta).then(function (o) { return takeNames(o.split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean), gl); }); }
     var out = await run(temp, null);
     if (looksRefusal(out, ls)) throw new Error('\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c (REFUSAL)');
     if (badOutput(out, ls)) {
       say && say('\ubc88\uc5ed\uc774 \uc774\uc0c1\ud558\uac8c \ub098\uc640 \ub2e4\uc2dc \uc694\uccad\ud558\ub294 \uc911');
       var C = cfg() || {};
       try {
-        var o2 = await run(0.2, sysPrompt(C) + '\n\n\uc911\uc694: \uc9c0\ub09c \uc751\ub2f5\uc5d0 \uc124\uba85\uc774\ub098 \uc6d0\ubb38\uc774 \uc11e\uc600\ub2e4. \uc774\ubc88\uc5d0\ub294 \ud55c\uad6d\uc5b4 \ubc88\uc5ed\ubb38\ub9cc, \uc785\ub825\uacfc \uac19\uc740 \uc21c\uc11c\ub85c, \ud55c \ubb38\ub2e8\uc5d0 \ud55c \uc904\uc529\ub9cc \ucd9c\ub825\ud558\ub77c.');
+        var o2 = await run(0.2, sysPrompt(C, wid) + '\n\n\uc911\uc694: \uc9c0\ub09c \uc751\ub2f5\uc5d0 \uc124\uba85\uc774\ub098 \uc6d0\ubb38\uc774 \uc11e\uc600\ub2e4. \uc774\ubc88\uc5d0\ub294 \ud55c\uad6d\uc5b4 \ubc88\uc5ed\ubb38\ub9cc, \uc785\ub825\uacfc \uac19\uc740 \uc21c\uc11c\ub85c, \ud55c \ubb38\ub2e8\uc5d0 \ud55c \uc904\uc529\ub9cc \ucd9c\ub825\ud558\ub77c.');
         if (!badOutput(o2, ls)) return o2;
         out = o2;
       } catch (e) { }
@@ -452,24 +472,24 @@
     }
     return out;
   }
-  async function translateLines(ls, depth, temp, say, onDelta) {
+  async function translateLines(ls, depth, temp, say, onDelta, gl) {
     try {
-      return await callLines(ls, temp, say, null, onDelta);
+      return await callLines(ls, temp, say, null, onDelta, gl);
     } catch (e) {
       if (onDelta) onDelta(null); // \ubcf4\uc5ec \uc8fc\ub358 \uc911\uac04 \uacb0\uacfc\ub294 \uc9c0\uc6c0
       if (!BLOCKED.test(e.message) || depth > 4) throw e;
       var alt = (cfg() || {}).alt;
       if (ls.length === 1) { // \ub05d\uae4c\uc9c0 \ub9c9\ud788\ub294 \ud55c \uc904: \ub300\uccb4 \ubaa8\ub378\uc774 \uc788\uc73c\uba74 \ud55c \ubc88 \ub354, \uadf8\ub798\ub3c4 \uc548 \ub418\uba74 \uc6d0\ubb38
-        if (alt) { try { say && say('\ub9c9\ud78c \ubb38\uc7a5\uc744 \ub2e4\ub978 \ubaa8\ub378\ub85c \ubc88\uc5ed\ud558\ub294 \uc911'); return await callLines(ls, temp, say, alt); } catch (e3) { } }
+        if (alt) { try { say && say('\ub9c9\ud78c \ubb38\uc7a5\uc744 \ub2e4\ub978 \ubaa8\ub378\ub85c \ubc88\uc5ed\ud558\ub294 \uc911'); return await callLines(ls, temp, say, alt, null, gl); } catch (e3) { } }
         return ['\u3014\ubc88\uc5ed \ucc28\ub2e8 \u2014 \uc6d0\ubb38\u3015 ' + ls[0]];
       }
       if (depth === 0 && alt) { // \ub369\uc5b4\ub9ac\uc9f8\ub85c \ub300\uccb4 \ubaa8\ub378 \uba3c\uc800
-        try { say && say('\ub9c9\ud78c \ubd80\ubd84\uc744 \ub2e4\ub978 \ubaa8\ub378\ub85c \ubc88\uc5ed\ud558\ub294 \uc911'); return await callLines(ls, temp, say, alt); } catch (e2) { }
+        try { say && say('\ub9c9\ud78c \ubd80\ubd84\uc744 \ub2e4\ub978 \ubaa8\ub378\ub85c \ubc88\uc5ed\ud558\ub294 \uc911'); return await callLines(ls, temp, say, alt, null, gl); } catch (e2) { }
       }
       say && say('\ucc28\ub2e8\ub41c \ubd80\ubd84\uc744 \ub098\ub220\uc11c \ubc88\uc5ed\ud558\ub294 \uc911');
       var n = Math.min(4, ls.length), size = Math.ceil(ls.length / n), parts = [];
       for (var i = 0; i < ls.length; i += size) parts.push(ls.slice(i, i + size));
-      var res = await Promise.all(parts.map(function (p) { return translateLines(p, depth + 1, temp, say); }));
+      var res = await Promise.all(parts.map(function (p) { return translateLines(p, depth + 1, temp, say, null, gl); }));
       return [].concat.apply([], res);
     }
   }
@@ -505,14 +525,14 @@
     if (ctl.title) title = ctl.title;
     var res = new Array(chunks.length), nextI = 0;
     var say = function (m) { ctl.status = m; ctl.statusTs = Date.now(); ctl.onStatus && ctl.onStatus(m); };
-    var failed = false;
+    var failed = false, gl = { wid: ch.id, learn: {} };
     function lim() { return ctl.limit == null ? chunks.length : Math.min(chunks.length, ctl.limit); }
     async function worker() {
       while (nextI < lim() && !failed) {
         var i = nextI++;
         if (ctl.cancel) throw new Error('\ucde8\uc18c\ub428');
         var r;
-        try { r = ctl.keep && ctl.keep[i] ? { lines: ctl.keep[i], title: title } : splitTitle(await translateLines(chunks[i], 0, temp, say, (function (ci) { return function (txt) { if (!ctl.cancel && ctl.onPartial) ctl.onPartial(ci, txt); }; })(i)), title); }
+        try { r = ctl.keep && ctl.keep[i] ? { lines: ctl.keep[i], title: title } : splitTitle(await translateLines(chunks[i], 0, temp, say, (function (ci) { return function (txt) { if (!ctl.cancel && ctl.onPartial) ctl.onPartial(ci, txt); }; })(i), gl), title); }
         catch (e) { failed = true; throw e; }
         if (ctl.cancel) throw new Error('\ucde8\uc18c\ub428');
         if (i === 0) title = r.title;
@@ -532,6 +552,7 @@
     if (!outLines.length) throw new Error('\ubc88\uc5ed \uacb0\uacfc\uac00 \ube44\uc5b4 \uc788\uc5b4\uc694');
     var v = { title: title, lines: outLines, parts: parts };
     cachePut(ch.url, v, ch.id);
+    try { saveNames(ch.id, gl.learn); } catch (e) { } // \uc0c8\ub85c \ub098\uc628 \uc778\ubb3c \uc774\ub984\uc740 \uc774\ub984\ud45c\uc5d0 \ucd94\uac00 (\uc774\ubbf8 \uc788\ub294 \uac74 \uadf8\ub300\ub85c)
     return v;
   }
 
@@ -744,6 +765,7 @@
     next: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
     aa: '<svg viewBox="0 0 24 24"><path d="M3 18l5-12 5 12M4.7 14h6.6M15 18v-5.5a2.5 2.5 0 0 1 5 0V18M15 15h5"/></svg>',
     x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    user: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/></svg>',
     up: '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>',
     down: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
     check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
@@ -909,6 +931,8 @@
     '.chip{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--bd);font-size:13.5px;color:var(--mut);background:transparent}',
     '.chip small{font-size:11.5px;opacity:.7}',
     '.chip.on{color:var(--fg);font-weight:600;border-color:color-mix(in srgb, var(--tc, var(--fg)) 60%, var(--bd));background:color-mix(in srgb, var(--tc, var(--fg)) 22%, var(--card))}',
+    '.namesin{width:100%;min-height:220px;border:1px solid var(--bd);border-radius:14px;background:var(--bg);padding:12px 14px;font:15px/1.7 var(--ui);color:var(--fg);resize:vertical}',
+    '.mini.busy{opacity:.55}',
     '.lphint{font-size:12.5px;color:var(--mut);margin:0 2px 12px;text-align:center}',
     '.empty{text-align:center;color:var(--mut);padding:60px 20px;font-size:14px;line-height:1.7}',
     '.row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:54px;padding:10px 4px;border-bottom:1px solid color-mix(in srgb,var(--bd) 60%,transparent)}',
@@ -1133,7 +1157,7 @@
     var srcLines = (p._grp >= 0 && it.chunks && it.chunks[p._grp]) || it.ch.lines;
     var C = cfg() || {};
     var sys = '\ub108\ub294 \uc911\uad6d\uc5b4 \uc6f9\uc18c\uc124 \ubc88\uc5ed \uad50\uc815\uac00\ub2e4. \uc8fc\uc5b4\uc9c4 \uc6d0\ubb38 \uc77c\ubd80\uc640 \ud55c\uad6d\uc5b4 \ubc88\uc5ed \ubb38\ub2e8 \ud558\ub098\ub97c \ubcf4\uace0, \uadf8 \ubb38\ub2e8\uc5d0 \ud574\ub2f9\ud558\ub294 \uc6d0\ubb38 \ubd80\ubd84\uc744 \ucc3e\uc544 \ub354 \uc815\ud655\ud558\uace0 \uc790\uc5f0\uc2a4\ub7ec\uc6b4 \ud55c\uad6d\uc5b4 \uc18c\uc124 \ubb38\uccb4\ub85c \ub2e4\uc2dc \ubc88\uc5ed\ud55c\ub2e4. \ub2e4\uc2dc \ubc88\uc5ed\ud55c \ubb38\ub2e8 \ud558\ub098\ub9cc \ucd9c\ub825\ud558\uace0 \uc124\uba85\uc740 \ubd99\uc774\uc9c0 \uc54a\ub294\ub2e4.' +
-      (C.g ? '\n\n\ub2e4\uc74c \uc6a9\uc5b4\uc9d1\uc744 \ubc18\ub4dc\uc2dc \ub530\ub978\ub2e4:\n' + C.g : '');
+      (C.g ? '\n\n\ub2e4\uc74c \uc6a9\uc5b4\uc9d1\uc744 \ubc18\ub4dc\uc2dc \ub530\ub978\ub2e4:\n' + C.g : '') + (namesText(it.ch.id) ? '\n\n\uc778\ubb3c \uc774\ub984 \ud45c\uae30(\ubc18\ub4dc\uc2dc \uc774\ub300\ub85c):\n' + namesText(it.ch.id) : '');
     var prompt = '[\uc6d0\ubb38]\n' + srcLines.join('\n') + '\n\n[\ud604\uc7ac \ubc88\uc5ed \ubb38\ub2e8]\n' + p.textContent;
     p.classList.add('busy');
     try {
@@ -1143,6 +1167,53 @@
       setPara(it, p, out); toast('\ub2e4\uc2dc \ubc88\uc5ed\ud588\uc5b4\uc694');
     } catch (e) { toast('\ub2e4\uc2dc \ubc88\uc5ed\ud558\uc9c0 \ubabb\ud588\uc5b4\uc694: ' + e.message.slice(0, 60)); }
     p.classList.remove('busy');
+  }
+
+  // \uc778\ubb3c \uc774\ub984 \uad50\uc815: \uc6d0\ubb38\uc758 \uc778\uba85 \ud55c\uc790 \u2192 \ud55c\uad6d \ud55c\uc790\uc74c, \ubc88\uc5ed\ubb38\uc5d0\uc11c \uc798\ubabb \uc4f4 \ud45c\uae30(\uc911\uad6d\uc5b4 \ubc1c\uc74c \ub4f1)\ub97c \ucc3e\uc544 \ubc14\uafc8 (\ub2e4\uc2dc \ubc88\uc5ed\ud558\uc9c0 \uc54a\uace0 \uae00\uc790\ub9cc \uad50\uccb4)
+  function replAll(t, map) { var n = 0; Object.keys(map).forEach(function (w) { var parts = t.split(w); if (parts.length > 1) { n += parts.length - 1; t = parts.join(map[w]); } }); return { t: t, n: n }; }
+  async function fixNames(it, btn) {
+    if (!it || !it.v) return;
+    btn && (btn.disabled = true, btn.classList.add('busy')); toast('\uc778\ubb3c \uc774\ub984\uc744 \ud655\uc778\ud558\ub294 \uc911');
+    var known = namesText(it.ch.id);
+    var sys = '\ub108\ub294 \uc911\uad6d\uc5b4 \uc18c\uc124\uc758 \ud55c\uad6d\uc5b4 \ubc88\uc5ed \uad50\uc815\uac00\ub2e4. [\uc6d0\ubb38]\uc5d0 \ub098\uc624\ub294 \uc0ac\ub78c \uc774\ub984(\uc131+\uc774\ub984, \uc774\ub984, \ud638\uce6d\ucc98\ub7fc \uc4f0\uc778 \uc774\ub984)\uc744 \ubaa8\ub450 \ucc3e\uc544 \ud55c\uad6d \ud55c\uc790\uc74c \ud45c\uae30\ub97c \uc815\ud55c\ub2e4(\uc608: \u5433\u79cb\u82f1\u2192\uc624\ucd94\uc601, \u5468\u5bb6\u68df\u2192\uc8fc\uac00\ub3d9). ' +
+      '\uadf8\ub9ac\uace0 [\ubc88\uc5ed]\uc5d0\uc11c \uadf8 \uc0ac\ub78c\uc774 \ub2e4\ub978 \ud45c\uae30(\uc911\uad6d\uc5b4 \ubc1c\uc74c \uc74c\ucc28, \uc798\ubabb \uc77d\uc740 \ud55c\uc790\uc74c, \uc624\ud0c0 \ub4f1)\ub85c \uc4f0\uc778 \uacf3\uc744 \ucc3e\ub294\ub2e4. \ubc88\uc5ed\ubb38\uc5d0 \uc2e4\uc81c\ub85c \uc788\ub294 \uc798\ubabb\ub41c \ud45c\uae30\ub9cc wrong\uc5d0 \ub123\ub294\ub2e4. ' +
+      '\uc124\uba85 \uc5c6\uc774 JSON \ud55c \uc904\ub9cc \ucd9c\ub825\ud55c\ub2e4: {"names":[{"zh":"\u5433\u79cb\u82f1","ko":"\uc624\ucd94\uc601","wrong":["\uc6b0\ucd94\uc789"]}]}' + (known ? '\n\n\uc774\ubbf8 \uc815\ud574 \ub454 \ud45c\uae30(\uadf8\ub300\ub85c \ub530\ub978\ub2e4):\n' + known : '');
+    var prompt = '[\uc6d0\ubb38]\n' + it.ch.lines.join('\n').slice(0, 14000) + '\n\n[\ubc88\uc5ed]\n' + it.v.lines.join('\n').slice(0, 16000);
+    try {
+      var raw = await callApi(prompt, 0.1, sys), j;
+      try { j = JSON.parse(raw.replace(/^[\s\S]*?(\{[\s\S]*\})[\s\S]*$/, '$1')); } catch (e) { throw new Error('\ub2f5\uc744 \uc77d\uc9c0 \ubabb\ud588\uc5b4\uc694'); }
+      var map = {}, learn = {}, pairs = [];
+      (j.names || []).forEach(function (x) {
+        if (!x || !x.zh || !x.ko) return; learn[x.zh] = x.ko;
+        (x.wrong || []).forEach(function (w) { w = String(w).trim(); if (w.length >= 2 && w !== x.ko && !/\s/.test(w) && x.ko.indexOf(w) < 0) { map[w] = x.ko; pairs.push(w + '\u2192' + x.ko); } });
+      });
+      saveNames(it.ch.id, learn, true);
+      if (!pairs.length) { toast('\uace0\uce60 \uc774\ub984\uc774 \uc5c6\uc5b4\uc694. \uc774\ub984\ud45c\ub294 \uc800\uc7a5\ud588\uc5b4\uc694'); return; }
+      // \uc9c0\uae08 \ud654 + \uc774 \uc791\ud488\uc758 \ub2e4\ub978 \ubc88\uc5ed\ub41c \ud654\uc5d0\ub3c4 \uac19\uc740 \uad50\uccb4\ub97c \uc801\uc6a9 (\ub2e4\uc2dc \ubc88\uc5ed \uc5c6\uc774)
+      var total = 0, I = cIndex();
+      Object.keys(I).forEach(function (k) {
+        if (I[k].w !== it.ch.id) return; var v = cacheGet(k); if (!v || !v.lines) return;
+        var ch = 0; v.lines = v.lines.map(function (l) { var r = replAll(l, map); ch += r.n; return r.t; }); var tr = replAll(v.title || '', map); v.title = tr.t;
+        if (ch || tr.n) { cachePut(k, v, it.ch.id); total += ch; }
+      });
+      chapters.forEach(function (c) {
+        if (c.ch.id !== it.ch.id || !c.v) return;
+        var fresh = cacheGet(c.ch.url); if (fresh && fresh.lines) c.v = fresh;
+        [].forEach.call(c.sec.querySelectorAll('p.tr'), function (p) { var r = replAll(p.textContent, map); if (r.n) setTr(p, r.t); });
+        if (c.v.title) setTitle(c, c.v.title);
+      });
+      toast('\uc774\ub984 ' + pairs.length + '\uac1c \uace0\ucce4\uc5b4\uc694 (' + total + '\uacf3): ' + pairs.slice(0, 3).join(', ') + (pairs.length > 3 ? ' \u2026' : ''));
+    } catch (e) { toast('\uc778\ubb3c \uc774\ub984\uc744 \uace0\uce58\uc9c0 \ubabb\ud588\uc5b4\uc694: ' + String(e.message).slice(0, 50)); }
+    finally { btn && (btn.disabled = false, btn.classList.remove('busy')); }
+  }
+  // \uc791\ud488\ubcc4 \uc778\ubb3c \uc774\ub984\ud45c \ud3b8\uc9d1
+  function openNames(id) {
+    var N = namesOf(id); workId0 = id; pn.dataset.mode = 'names';
+    var h = '<div class="grab"></div><div class="hd"><button class="bk" data-act="namesBack" data-id="' + esc(id) + '" aria-label="\ub4a4\ub85c">' + I.back + '</button><h3>\uc778\ubb3c \uc774\ub984</h3><button class="x" data-act="close" aria-label="\ub2eb\uae30">' + I.x + '</button></div>' +
+      '<p class="hint">\ud55c \uc904\uc5d0 \ud558\ub098\uc529 "\ud55c\uc790=\ud55c\uae00"\ub85c \uc801\uc5b4\uc694. \ubc88\uc5ed\ud560 \ub54c \uc774 \ud45c\uae30\ub97c \uadf8\ub300\ub85c \uc368\uc694.</p>' +
+      '<textarea class="namesin" rows="10" spellcheck="false" placeholder="\u5433\u79cb\u82f1=\uc624\ucd94\uc601">' + esc(Object.keys(N).map(function (k) { return k + '=' + N[k]; }).join('\n')) + '</textarea>' +
+      '<button class="wide pri" data-act="namesSave" data-id="' + esc(id) + '">\uc800\uc7a5</button>';
+    pn.innerHTML = h; pn.scrollTop = 0; showSheet();
   }
 
   // ===================== \ud654 \ud45c\uc2dc =====================
@@ -1342,6 +1413,7 @@
           var src = c === 0 ? item.chunks[0].slice(1) : item.chunks[c];
           if (tx == null) { g.innerHTML = ''; src.forEach(function (l) { g.appendChild(el('p', 'src', l)); }); return; }
           var ls = tx.split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+          ls = ls.filter(function (l) { return !NAMES_LINE.test(l); });
           ls = ls.filter(function (l) { var m = l.match(/^\[\uc81c\ubaa9\]\s*(.*)$/); if (m && c === 0 && m[1]) setTitle(item, m[1]); return !m; });
           g.innerHTML = '';
           ls.forEach(function (l) { g.appendChild(trP('tr live', l)); });
@@ -1358,7 +1430,8 @@
       var k = 0; [].forEach.call(sec.querySelectorAll('p.tr'), function (p) { p._idx = k++; });
       meta.remove();
       var row = el('div', 'endrow'), rt = el('button', 'mini'); rt.innerHTML = I.redo + '\uc774 \ud654 \ub2e4\uc2dc \ubc88\uc5ed'; rt.dataset.act = 'retrans'; rt._item = item;
-      row.appendChild(rt); sec.appendChild(row);
+      var fn = el('button', 'mini'); fn.innerHTML = I.user + '\uc778\ubb3c \uc774\ub984 \uad50\uc815'; fn.dataset.act = 'fixNames'; fn._item = item;
+      row.appendChild(rt); row.appendChild(fn); sec.appendChild(row);
       if (ch.next && !ch.guessed) recordPattern(ch.url, ch.next);
       if (!ch.next) { var gn = guessUrl(ch.url, 'next'); if (gn) { ch.next = gn; ch.guessed = 1; } }
       if (ch.next) item.nextP = prefetch(ch.next, preLimit(), true);
@@ -1599,6 +1672,7 @@
     var h = '<div class="grab"></div><div class="hd wk">' + coverHtml(id, 'width:44px') + '<h3>' + esc(bookName(w)) + '</h3><button class="x" data-act="close" aria-label="\ub2eb\uae30">' + I.x + '</button></div>' +
       '<div class="tagbox">' + ((w.tags || []).map(function (t) { return tagHtml(t, true, id); }).join('') || '<span class="hint" style="margin:0">\ud0dc\uadf8\uac00 \uc5c6\uc5b4\uc694</span>') + '</div>' +
       '<div class="urlrow"><input class="url tagin" type="text" maxlength="12" placeholder="\ud0dc\uadf8 \uc774\ub984 (\uc608: \uc644\uacb0, \ud68c\uadc0, \uc7ac\ubc0c\uc74c)"><button class="go" data-act="tagAdd" data-id="' + esc(id) + '">\ucd94\uac00</button></div>' +
+      '<button class="wide" data-act="namesOpen" data-id="' + esc(id) + '">' + I.user + '\uc778\ubb3c \uc774\ub984 ' + Object.keys(w.names || {}).length + '\uac1c</button>' +
       '<button class="wide" data-act="export" data-id="' + esc(id) + '">' + I.dl + '\ubc88\uc5ed\ub41c \ud654 TXT\ub85c \uc800\uc7a5</button>' +
       '<button class="wide danger" data-act="libDelAsk" data-id="' + esc(id) + '">' + I.x + '\uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6b0\uae30</button>';
     pn.innerHTML = h; pn.scrollTop = 0; showSheet();
@@ -1911,6 +1985,14 @@
     if (name === 'openReal') { // \uc774 \ud0ed\uc5d0\uc11c \uc6d0\ubcf8 \ud398\uc774\uc9c0\ub97c \uc9c1\uc811 \uc5f4\uace0(\uc0ac\uc774\ud2b8 \uc2a4\ud06c\ub9bd\ud2b8\u00b7\uc778\uc99d \ud1b5\uacfc) \uac70\uae30\uc11c \ub2e4\uc2dc \ubc88\uc5ed
       location.href = String(t.dataset.u).split('#')[0] + '#nvtr' + Date.now(); return;
     }
+    if (name === 'fixNames') { fixNames(t._item, t); return; }
+    if (name === 'namesOpen') { openNames(t.dataset.id); return; }
+    if (name === 'namesBack') { openWork(t.dataset.id); return; }
+    if (name === 'namesSave') {
+      var ta = pn.querySelector('.namesin'), L5 = libAll(), w5 = L5[t.dataset.id]; if (!w5) return;
+      var nm = {}; String(ta.value).split(/\n/).forEach(function (l) { var m = l.split(/[=\uff1d]/); if (m.length === 2 && m[0].trim() && m[1].trim()) nm[m[0].trim()] = m[1].trim(); });
+      w5.names = nm; gset('lib', L5); toast('\uc778\ubb3c \uc774\ub984 ' + Object.keys(nm).length + '\uac1c\ub97c \uc800\uc7a5\ud588\uc5b4\uc694'); openWork(t.dataset.id); return;
+    }
     if (name === 'retrans') {
       var rit = t._item || chapters[curIndex()];
       if (!rit) return;
@@ -1990,7 +2072,7 @@
     }
     return null;
   }
-  function onInput(e) { return pathOf(e).some(function (n) { return n.tagName === 'INPUT'; }); }
+  function onInput(e) { return pathOf(e).some(function (n) { return n.tagName === 'INPUT' || n.tagName === 'TEXTAREA'; }); }
   var down = null, lastPtr = 0, lpT = null, lpFired = false;
   // \uc790\ud310\uc774 \uc62c\ub77c\uc624\uba74 \uc544\ub798 \uc2dc\ud2b8\ub97c \uc790\ud310 \uc704\ub85c \uc62c\ub9bc (\ud30c\uc774\uc5b4\ud3ed\uc2a4\ub294 \uc790\ud310\uc774 \ud654\uba74\uc744 \ub36e\uae30\ub9cc \ud558\uace0 \ud654\uba74 \ud06c\uae30\ub97c \uc548 \uc904\uc5ec\uc11c)
   function fitKb() {
@@ -2002,7 +2084,7 @@
   if (window.visualViewport) { window.visualViewport.addEventListener('resize', fitKb); window.visualViewport.addEventListener('scroll', fitKb); }
   root.addEventListener('focusin', function (e) {
     var tg = e.composedPath && e.composedPath()[0];
-    if (tg && tg.tagName === 'INPUT' && pn.contains(tg)) [150, 400, 800].forEach(function (ms) { setTimeout(function () { fitKb(); try { tg.scrollIntoView({ block: 'nearest' }); } catch (x) { } }, ms); });
+    if (tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA') && pn.contains(tg)) [150, 400, 800].forEach(function (ms) { setTimeout(function () { fitKb(); try { tg.scrollIntoView({ block: 'nearest' }); } catch (x) { } }, ms); });
   }, true);
   root.addEventListener('focusout', function () { setTimeout(fitKb, 300); }, true);
   root.addEventListener('keydown', function (e) { // \ud0dc\uadf8 \uc785\ub825: \uc5d4\ud130\ub85c \ucd94\uac00
@@ -2024,7 +2106,7 @@
     var ps = pathOf(e), hit = false;
     for (var i = 0; i < ps.length; i++) {
       var n = ps[i]; if (n === pn) break;
-      if (n.tagName === 'BUTTON' || n.tagName === 'INPUT') return false;
+      if (n.tagName === 'BUTTON' || n.tagName === 'INPUT' || n.tagName === 'TEXTAREA') return false;
       if (n.classList && (n.classList.contains('grab') || n.classList.contains('hd'))) hit = n.classList.contains('grab') ? 'grab' : hit || 'hd';
     }
     return ps.indexOf(pn) >= 0 ? hit : false;
