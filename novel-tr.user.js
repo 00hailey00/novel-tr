@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.5.6
+// @version      1.5.7
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -557,25 +557,70 @@
     return THEMES[k] && !!THEMES[k].dark === dk ? k : dk ? 'dark' : 'light';
   }
   var tmpTheme = null, themeSnap = null;
+  // \uae00\uaf34: \uace0\ub515(go) \u00b7 \uba85\uc870(my) \u00b7 \uc190\uae00\uc528(hd) \u00b7 \uac1c\uc131(ds). \uc6f9 \uae00\uaf34\uc740 \uace0\ub978 \uac83\ub9cc \ubd88\ub7ec\uc634
   var FONTS = {
-    pretendard: { n: '\ud504\ub9ac\ud150\ub2e4\ub4dc', f: '"Pretendard Variable",Pretendard,-apple-system,sans-serif',
-      css: 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css' },
-    notosans: { n: '\ubcf8\uace0\ub515', f: '"Noto Sans KR",sans-serif', g: 'Noto+Sans+KR:wght@400;500;700' },
-    nanumgothic: { n: '\ub098\ub214\uace0\ub515', f: '"Nanum Gothic",sans-serif', g: 'Nanum+Gothic:wght@400;700' },
-    gowundodum: { n: '\uace0\uc6b4\ub3cb\uc6c0', f: '"Gowun Dodum",sans-serif', g: 'Gowun+Dodum' },
-    sys: { n: '\uc2dc\uc2a4\ud15c', f: '-apple-system,"Noto Sans KR",sans-serif' },
-    notoserif: { n: '\ubcf8\uba85\uc870', f: '"Noto Serif KR",serif', g: 'Noto+Serif+KR:wght@400;700' },
-    gowunbatang: { n: '\uace0\uc6b4\ubc14\ud0d5', f: '"Gowun Batang",serif', g: 'Gowun+Batang:wght@400;700' }
+    pretendard: { n: '\ud504\ub9ac\ud150\ub2e4\ub4dc', c: 'go', f: '"Pretendard Variable",Pretendard,sans-serif', css: 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css' },
+    notosans: { n: '\ubcf8\uace0\ub515', c: 'go', f: '"Noto Sans KR",sans-serif', g: 'Noto+Sans+KR:wght@400;500;700' },
+    nanumgothic: { n: '\ub098\ub214\uace0\ub515', c: 'go', f: '"Nanum Gothic",sans-serif', g: 'Nanum+Gothic:wght@400;700' },
+    nanumbarun: { n: '\ub098\ub214\ubc14\ub978\uace0\ub515', c: 'go', f: '"Nanum Barun Gothic",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/NanumBarunGothic/NanumBarunGothic.css' },
+    nanumsqneo: { n: '\ub098\ub214\uc2a4\ud018\uc5b4 \ub124\uc624', c: 'go', f: '"Nanum Square Neo",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/NanumSquareNeo/NanumSquareNeo.css' },
+    nanumsq: { n: '\ub098\ub214\uc2a4\ud018\uc5b4', c: 'go', f: '"Nanum Square",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/NanumSquare/NanumSquare.css' },
+    spoqa: { n: '\uc2a4\ud3ec\uce74 \ud55c \uc0b0\uc2a4', c: 'go', f: '"Spoqa Han Sans Neo",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/SpoqaHanSansNeo/SpoqaHanSansNeo.css' },
+    suit: { n: 'SUIT', c: 'go', f: '"SUIT",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/SUIT/SUIT.css' },
+    scdream: { n: '\uc5d0\uc2a4\ucf54\uc5b4 \ub4dc\ub9bc', c: 'go', f: '"S-Core Dream",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/S-CoreDream/S-CoreDream.css' },
+    ibmplex: { n: 'IBM \ud50c\ub809\uc2a4 \uc0b0\uc2a4', c: 'go', f: '"IBM Plex Sans KR",sans-serif', g: 'IBM+Plex+Sans+KR:wght@400;600' },
+    gothica1: { n: '\uace0\ub515 A1', c: 'go', f: '"Gothic A1",sans-serif', g: 'Gothic+A1:wght@400;600' },
+    kopubdotum: { n: 'KoPub \ub3cb\uc6c0', c: 'go', f: '"KoPub Dotum",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/KoPubDotum/KoPubDotum.css' },
+    seoulnamsan: { n: '\uc11c\uc6b8\ub0a8\uc0b0', c: 'go', f: '"Seoul Namsan",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/SeoulNamsan/SeoulNamsan.css' },
+    lineseed: { n: 'LINE Seed', c: 'go', f: '"LINE Seed KR",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/LINESeedKR/LINESeedKR.css' },
+    nexon: { n: '\ub125\uc2a8 Lv1 \uace0\ub515', c: 'go', f: '"NEXON Lv1 Gothic",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/NEXONLv1Gothic/NEXONLv1Gothic.css' },
+    gmarket: { n: 'G\ub9c8\ucf13 \uc0b0\uc2a4', c: 'go', f: '"Gmarket Sans",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/GmarketSans/GmarketSans.css' },
+    freesent: { n: '\ud504\ub9ac\uc820\ud14c\uc774\uc158', c: 'go', f: '"Freesentation",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/Freesentation/Freesentation.css' },
+    paperlogy: { n: '\ud398\uc774\ud37c\ub85c\uc9c0', c: 'go', f: '"Paperlogy",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/Paperlogy/Paperlogy.css' },
+    bookkgothic: { n: '\ubd80\ud06c\ud06c \uace0\ub515', c: 'go', f: '"Bookk Gothic",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/BookkGothic/BookkGothic.css' },
+    elice: { n: '\uc5d8\ub9ac\uc2a4 \ub514\uc9c0\ud138\ubc30\uc6c0', c: 'go', f: '"Elice Digital Baeum",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/EliceDigitalBaeum/EliceDigitalBaeum.css' },
+    gowundodum: { n: '\uace0\uc6b4\ub3cb\uc6c0', c: 'go', f: '"Gowun Dodum",sans-serif', g: 'Gowun+Dodum' },
+    sys: { n: '\uc2dc\uc2a4\ud15c \uae00\uaf34', c: 'go', f: '-apple-system,system-ui,sans-serif' },
+    ridibatang: { n: '\ub9ac\ub514\ubc14\ud0d5', c: 'my', f: '"RIDI Batang",serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/RIDIBatang/RIDIBatang.css' },
+    maruburi: { n: '\ub9c8\ub8e8\ubd80\ub9ac', c: 'my', f: '"Maru Buri",serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/MaruBuri/MaruBuri.css' },
+    notoserif: { n: '\ubcf8\uba85\uc870', c: 'my', f: '"Noto Serif KR",serif', g: 'Noto+Serif+KR:wght@400;700' },
+    nanummyeongjo: { n: '\ub098\ub214\uba85\uc870', c: 'my', f: '"Nanum Myeongjo",serif', g: 'Nanum+Myeongjo:wght@400;700' },
+    gowunbatang: { n: '\uace0\uc6b4\ubc14\ud0d5', c: 'my', f: '"Gowun Batang",serif', g: 'Gowun+Batang:wght@400;700' },
+    kopubbatang: { n: 'KoPub \ubc14\ud0d5', c: 'my', f: '"KoPub Batang",serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/KoPubBatang/KoPubBatang.css' },
+    hahmlet: { n: '\ud568\ub81b', c: 'my', f: '"Hahmlet",serif', g: 'Hahmlet:wght@400;600' },
+    songmyung: { n: '\uc1a1\uba85', c: 'my', f: '"Song Myung",serif', g: 'Song+Myung' },
+    jejumyeongjo: { n: '\uc81c\uc8fc\uba85\uc870', c: 'my', f: '"Jeju Myeongjo",serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/JejuMyeongjo/JejuMyeongjo.css' },
+    seoulhangang: { n: '\uc11c\uc6b8\ud55c\uac15', c: 'my', f: '"Seoul Hangang",serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/SeoulHangang/SeoulHangang.css' },
+    chosun: { n: '\uc870\uc120100\ub144\uccb4', c: 'my', f: '"Chosun Centennial",serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/ChosunCentennial/ChosunCentennial.css' },
+    bookkmyungjo: { n: '\ubd80\ud06c\ud06c \uba85\uc870', c: 'my', f: '"Bookk Myungjo",serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/BookkMyungjo/BookkMyungjo.css' },
+    nanumpen: { n: '\ub098\ub214\uc190\uae00\uc528 \ud39c', c: 'hd', f: '"Nanum Pen Script",sans-serif', g: 'Nanum+Pen+Script' },
+    nanumbarunpen: { n: '\ub098\ub214\ubc14\ub978\ud39c', c: 'hd', f: '"Nanum Barunpen",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/NanumBarunpen/NanumBarunpen.css' },
+    gaegu: { n: '\uac1c\uad6c', c: 'hd', f: '"Gaegu",sans-serif', g: 'Gaegu:wght@400;700' },
+    himelody: { n: '\ud558\uc774\uba5c\ub85c\ub514', c: 'hd', f: '"Hi Melody",sans-serif', g: 'Hi+Melody' },
+    poorstory: { n: '\ud478\uc5b4 \uc2a4\ud1a0\ub9ac', c: 'hd', f: '"Poor Story",sans-serif', g: 'Poor+Story' },
+    gamja: { n: '\uac10\uc790\uaf43', c: 'hd', f: '"Gamja Flower",sans-serif', g: 'Gamja+Flower' },
+    kccchassam: { n: 'KCC \ucc28\uc324', c: 'hd', f: '"KCC Chassam",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/KCCChassam/KCCChassam.css' },
+    singleday: { n: '\uc2f1\uae00\ub370\uc774', c: 'hd', f: '"Single Day",sans-serif', g: 'Single+Day' },
+    jua: { n: '\uc8fc\uc544', c: 'ds', f: '"Jua",sans-serif', g: 'Jua' },
+    dohyeon: { n: '\ub3c4\ud604', c: 'ds', f: '"Do Hyeon",sans-serif', g: 'Do+Hyeon' },
+    sunflower: { n: '\ud574\ubc14\ub77c\uae30', c: 'ds', f: '"Sunflower",sans-serif', g: 'Sunflower:wght@300;500' },
+    dongle: { n: '\ub3d9\uae00', c: 'ds', f: '"Dongle",sans-serif', g: 'Dongle' },
+    stylish: { n: '\uc2a4\ud0c0\uc77c\ub9ac\uc2dc', c: 'ds', f: '"Stylish",sans-serif', g: 'Stylish' },
+    orbit: { n: '\uc624\ub974\ube57', c: 'ds', f: '"Orbit",sans-serif', g: 'Orbit' },
+    yeonsung: { n: '\uc5f0\uc131', c: 'ds', f: '"Yeon Sung",sans-serif', g: 'Yeon+Sung' },
+    cafe24: { n: '\uce74\ud39824 \uc368\ub77c\uc6b4\ub4dc', c: 'ds', f: '"Cafe24 Ssurround",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/Cafe24Ssurround/Cafe24Ssurround.css' },
+    tmoney: { n: '\ud2f0\uba38\ub2c8 \ub465\uadfc\ubc14\ub78c', c: 'ds', f: '"Tmoney Round Wind",sans-serif', css: 'https://cdn.jsdelivr.net/gh/fonts-archive/TmoneyRoundWind/TmoneyRoundWind.css' }
   };
+  var FCAT = [['go', '\uace0\ub515'], ['my', '\uba85\uc870'], ['hd', '\uc190\uae00\uc528'], ['ds', '\uac1c\uc131']];
   var STEPS = [
     ['fs', '\uae00\uc790 \ud06c\uae30', 1, 12, 32, function (v) { return v + 'px'; }],
-    ['lh', '\uc904 \uac04\uaca9', 0.1, 1.3, 2.6, function (v) { return v.toFixed(1); }],
-    ['ps', '\ubb38\ub2e8 \uac04\uaca9', 0.2, 0, 2.4, function (v) { return v.toFixed(1); }],
-    ['pad', '\uc88c\uc6b0 \uc5ec\ubc31', 4, 8, 60, function (v) { return v + 'px'; }],
-    ['mw', '\ubcf8\ubb38 \ud3ed', 40, 400, 1000, function (v) { return v + 'px'; }]
+    ['lh', '\uc904 \uac04\uaca9', 0.05, 1.3, 2.6, function (v) { return v.toFixed(2); }],
+    ['ps', '\ubb38\ub2e8 \uac04\uaca9', 0.1, 0, 2.4, function (v) { return v.toFixed(1); }],
+    ['pad', '\uc88c\uc6b0 \uc5ec\ubc31', 2, 8, 60, function (v) { return v + 'px'; }],
+    ['mw', '\ubcf8\ubb38 \ud3ed', 20, 400, 1000, function (v) { return v + 'px'; }]
   ];
   var PK = 'nvtrPrefs';
-  var DEF = { theme: 'auto', mode: '', dayT: 'light', nightT: 'dark', pins: [], font: 'pretendard', fs: 18, lh: 1.8, ps: 0.9, mw: 680, pad: 24, ind: 0, auto: 1, pre: 1, ts: 0, v: 2 };
+  var DEF = { theme: 'auto', mode: '', dayT: 'light', nightT: 'dark', pins: [], font: 'pretendard', fontCustom: '', just: 1, fs: 18, lh: 1.8, ps: 0.9, mw: 680, pad: 24, ind: 0, auto: 1, pre: 1, ts: 0, v: 2 };
   function fill(p) {
     p = p || {}; Object.keys(DEF).forEach(function (k) { if (p[k] == null) p[k] = DEF[k]; });
     if (!p.mode) { // \uc608\uc804 \uc124\uc815(\ud14c\ub9c8 \ud558\ub098)\uc744 \ub0ae/\ubc24 \ubc29\uc2dd\uc73c\ub85c \uc62e\uae40
@@ -590,7 +635,22 @@
   prefs = fill(JSON.parse(JSON.stringify(prefs)));
   function savePrefs() { prefs.ts = Date.now(); gset(PK, JSON.parse(JSON.stringify(prefs))); }
   var loadedFonts = {};
+  // \uc9c1\uc811 \uc785\ub825\ud55c \uae00\uaf34: \uc774\ub984(\uad6c\uae00 \ud3f0\ud2b8 \uc774\ub984\uc774\uba74 \ubd88\ub7ec\uc634) \ub610\ub294 \uae00\uaf34 \ud30c\uc77c \uc8fc\uc18c(.woff2 \ub4f1)
+  function customFont() {
+    var v = String(prefs.fontCustom || '').trim(); if (!v) return null;
+    if (/^https?:\/\//i.test(v)) {
+      if (/\.css(\?|$)/i.test(v)) return { f: 'NvCustom,sans-serif', css: v, url: 1 };
+      return { f: '"NvCustom",sans-serif', face: v };
+    }
+    return { f: '"' + v.replace(/"/g, '') + '",sans-serif', g: v.replace(/\s+/g, '+') };
+  }
+  function loadCustom() {
+    var C = customFont(); if (!C || loadedFonts['c:' + prefs.fontCustom]) return; loadedFonts['c:' + prefs.fontCustom] = 1;
+    if (C.face) { var st = document.createElement('style'); st.textContent = '@font-face{font-family:"NvCustom";src:url("' + C.face.replace(/"/g, '') + '");font-display:swap}'; document.head.appendChild(st); return; }
+    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = C.css || ('https://fonts.googleapis.com/css2?family=' + C.g + '&display=swap'); document.head.appendChild(l);
+  }
   function loadFont(key) {
+    if (key === 'custom') { loadCustom(); return; }
     var F = FONTS[key]; if (!F || loadedFonts[key] || (!F.g && !F.css)) return; loadedFonts[key] = 1;
     var l = document.createElement('link'); l.rel = 'stylesheet';
     l.href = F.css || ('https://fonts.googleapis.com/css2?family=' + F.g + '&display=swap');
@@ -635,6 +695,9 @@
     next: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
     aa: '<svg viewBox="0 0 24 24"><path d="M3 18l5-12 5 12M4.7 14h6.6M15 18v-5.5a2.5 2.5 0 0 1 5 0V18M15 15h5"/></svg>',
     x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    up: '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>',
+    down: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
+    check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
     dl: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
     back: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>',
     redo: '<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>',
@@ -657,7 +720,7 @@
     '.meta .dot{width:7px;height:7px;border-radius:50%;background:var(--ac);animation:pl 1.2s ease-in-out infinite}',
     '@keyframes pl{50%{opacity:.25}}',
     // \ubcf8\ubb38
-    '.grp p{font-size:var(--fs);line-height:var(--lh);margin-bottom:var(--ps);text-indent:var(--ind);word-break:keep-all;overflow-wrap:anywhere;letter-spacing:-.012em;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;border-radius:6px;transition:background .2s}',
+    '.grp p{font-size:var(--fs);line-height:var(--lh);margin-bottom:var(--ps);text-indent:var(--ind);text-align:var(--ta);text-justify:inter-character;word-break:var(--wb);overflow-wrap:anywhere;line-break:strict;letter-spacing:-.012em;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;border-radius:6px;transition:background .2s}',
     '.grp p.src{color:var(--mut);opacity:.55}',
     '.grp p.tr{animation:fi .5s cubic-bezier(.2,.8,.2,1) both}',
     '.grp p.tr.live{animation:none}',
@@ -714,12 +777,35 @@
     '.tsw.pin::after{content:"";position:absolute;top:-1px;right:-1px;width:9px;height:9px;border-radius:50%;background:var(--ac);border:2px solid var(--card)}',
     '.swrow .sep2{flex:none;width:1px;height:28px;background:var(--bd)}',
     '.swnm{font-size:12px;color:var(--mut);margin-top:2px}',
+    '.grpbox{border:1px solid var(--bd);border-radius:16px;padding:0 14px;margin-bottom:6px;background:color-mix(in srgb,var(--bg) 40%,var(--card))}',
+    '.grpbox.lnk{margin-top:22px}',
+    '.rowx{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:54px;text-align:left;font-size:15px;border-bottom:1px solid color-mix(in srgb,var(--bd) 55%,transparent)}',
+    '.grpbox>.rowx:last-child{border-bottom:0}',
+    '.rowx>svg{width:18px;height:18px;color:var(--mut)}',
+    '.rowx .rv{display:flex;align-items:center;gap:4px;color:var(--mut);font-size:15px;min-width:0}',
+    '.rowx .rv svg{width:18px;height:18px;flex:none}',
+    '.rowx .mutd{color:var(--mut)}',
+    '.tg{flex:none;position:relative;width:46px;height:28px;border-radius:14px;background:var(--bd);transition:background .2s}',
+    '.tg::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s cubic-bezier(.2,.8,.2,1)}',
+    '.tg.on{background:var(--ac)}',
+    '.tg.on::after{transform:translateX(18px)}',
+    '.seg.full{display:flex;width:100%;margin:8px 0 6px}',
+    '.seg.full button{flex:1}',
+    '.pn .hd .bk{width:40px;height:40px;margin-left:-10px;display:flex;align-items:center;justify-content:center}',
+    '.pn .hd .bk+h3{flex:1}',
+    '.flist{margin:4px 0 0}',
+    '.frow{display:flex;flex-direction:column;align-items:flex-start;gap:2px;position:relative;width:100%;text-align:left;padding:12px 40px 12px 4px;border-bottom:1px solid color-mix(in srgb,var(--bd) 55%,transparent)}',
+    '.frow b{font-size:16px;font-weight:600}',
+    '.frow span{font-size:14px;color:var(--mut)}',
+    '.frow svg{position:absolute;right:6px;top:50%;margin-top:-11px;color:var(--ac);display:none}',
+    '.frow.sel svg{display:block}',
+    '.frow.sel b{color:var(--ac)}',
     '.pn .ch{min-height:46px;padding:0 16px;border-radius:14px;border:1px solid var(--bd);font-size:15px}',
     '.pn .ch.sel{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--ac);font-weight:700}',
     '.pn .stp{display:flex;align-items:center;justify-content:space-between;min-height:58px;border-bottom:1px solid color-mix(in srgb,var(--bd) 55%,transparent)}',
     '.pn .ctl{display:flex;align-items:center;gap:6px}',
-    '.pn .ctl button{width:50px;height:44px;border-radius:14px;border:1px solid var(--bd);font-size:22px;line-height:1}',
-    '.pn .ctl b{min-width:66px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}',
+    '.pn .ctl button{width:40px;height:36px;border-radius:12px;border:1px solid var(--bd);font-size:19px;line-height:1}',
+    '.pn .ctl b{min-width:58px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}',
     '.pn .wide{display:flex;width:100%;min-height:54px;align-items:center;justify-content:center;gap:8px;border-radius:16px;border:1px solid var(--bd);font-size:15px;margin-top:12px}',
     '.pn .wide.pri{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600}',
     '.pn .hint{font-size:13px;color:var(--mut);margin:6px 0 10px;line-height:1.55}',
@@ -775,7 +861,12 @@
     '.row.cur{background:color-mix(in srgb,var(--ac) 10%,transparent);border-radius:10px;padding-left:10px}',
     '.row.cur .rt{color:var(--ac);font-weight:600}',
     '.bdg{flex:none;font-size:11px;padding:3px 8px;border-radius:999px;background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--ac);font-weight:600}',
-    '.tbar{display:flex;gap:8px;margin-bottom:12px}',
+    '.tochd{position:sticky;top:-16px;z-index:1;display:flex;align-items:center;gap:10px;margin:-16px -18px 4px;padding:12px 18px 10px;background:var(--bg);border-bottom:1px solid color-mix(in srgb,var(--bd) 60%,transparent)}',
+    '.tst{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--mut);white-space:nowrap}',
+    '.tst b{font-size:15px;color:var(--fg);font-weight:700}',
+    '.seg.tj button{padding:0 11px;display:flex;align-items:center}',
+    '.seg.tj svg{width:18px;height:18px}',
+    '.tgap{font-size:12.5px;color:var(--mut);margin:8px 2px 2px}',
     '.tbar button{flex:1;min-height:44px;border-radius:12px;border:1px solid var(--bd);font-size:13px}',
     '.spin{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--mut);padding:50px 0;font-size:14px}',
     '.spin:before{content:"";width:18px;height:18px;border-radius:50%;border:2px solid var(--bd);border-top-color:var(--ac);animation:sp .9s linear infinite}',
@@ -848,10 +939,10 @@
 
   function applyPrefs() {
     var t = THEMES[themeKey()];
-    var F = FONTS[prefs.font] || FONTS.pretendard; loadFont(prefs.font); loadFont('pretendard');
+    var F = (prefs.font === 'custom' && customFont()) || FONTS[prefs.font] || FONTS.pretendard; loadFont(prefs.font); loadFont('pretendard');
     var v = { '--bg': t.bg, '--fg': t.fg, '--mut': t.mut, '--card': t.card, '--bd': t.bd, '--ac': t.ac, '--font': F.f,
       '--ui': FONTS.pretendard.f, '--fs': prefs.fs + 'px', '--lh': prefs.lh, '--ps': prefs.ps + 'em', '--mw': prefs.mw + 'px',
-      '--pad': prefs.pad + 'px', '--ind': prefs.ind ? '1em' : '0' };
+      '--pad': prefs.pad + 'px', '--ind': prefs.ind ? '1em' : '0', '--ta': prefs.just ? 'justify' : 'left', '--wb': prefs.just ? 'normal' : 'keep-all' }; // \uc591\ucabd \uc815\ub82c\uc740 \uae00\uc790 \ub2e8\uc704 \uc904\ubc14\uafc8\uc774\ub77c\uc57c \ub744\uc5b4\uc4f0\uae30\uac00 \ubc8c\uc5b4\uc9c0\uc9c0 \uc54a\uc74c
     Object.keys(v).forEach(function (k) { app.style.setProperty(k, v[k]); });
     app.classList.toggle('dk', !!t.dark); // \uc5b4\ub450\uc6b4 \ud14c\ub9c8: \uae00\uc790\ub97c \uc0b4\uc9dd \uac00\ub298\uac8c (\ubc1d\uc740 \uae00\uc528\uac00 \ubc88\uc838 \ubcf4\uc774\ub294 \uac83 \uc904\uc784)
     document.documentElement.style.background = t.bg;
@@ -867,23 +958,20 @@
     h += '<div class="thd"><span class="lb">\ud14c\ub9c8</span><button class="undo" data-act="themeUndo">\ub418\ub3cc\ub9ac\uae30</button><div class="seg">' +
       '<button data-act="tmode" data-v="d">\ub0ae</button><button data-act="tmode" data-v="n">\ubc24</button><button data-act="tmode" data-v="a">\uc790\ub3d9</button></div></div>' +
       '<div class="swrow"></div><div class="swnm"></div>';
-    h += '<div class="lb">\uae00\uaf34</div><div class="chips">';
-    Object.keys(FONTS).forEach(function (k) {
-      loadFont(k);
-      h += '<button class="ch" data-act="font" data-v="' + k + '" style="font-family:' + FONTS[k].f.replace(/"/g, '&quot;') + '">' + FONTS[k].n + '</button>';
-    });
-    h += '</div><div class="lb">\uac04\uaca9</div>';
+    var F = prefs.font === 'custom' ? { n: prefs.fontCustom || '\uc9c1\uc811 \uc785\ub825', f: (customFont() || {}).f } : (FONTS[prefs.font] || FONTS.pretendard);
+    h += '<div class="lb">\uae00\uc790</div><div class="grpbox">' +
+      '<button class="rowx" data-act="fontOpen"><span>\uae00\uaf34</span><span class="rv" style="font-family:' + esc(F.f || '') + '">' + esc(F.n) + I.next + '</span></button>';
     STEPS.forEach(function (s) {
-      h += '<div class="stp"><span>' + s[1] + '</span><div class="ctl"><button data-act="step" data-v="' + s[0] + '" data-d="-1" aria-label="\uc904\uc774\uae30">\u2212</button><b data-k="' + s[0] + '"></b><button data-act="step" data-v="' + s[0] + '" data-d="1" aria-label="\ub298\ub9ac\uae30">+</button></div></div>';
+      h += '<div class="rowx"><span>' + s[1] + '</span><div class="ctl"><button data-act="step" data-v="' + s[0] + '" data-d="-1" aria-label="' + s[1] + ' \uc904\uc774\uae30">\u2212</button><b data-k="' + s[0] + '"></b><button data-act="step" data-v="' + s[0] + '" data-d="1" aria-label="' + s[1] + ' \ub298\ub9ac\uae30">+</button></div></div>';
     });
-    h += '<div class="lb">\uae30\ud0c0</div><div class="chips">' +
-      '<button class="ch" data-act="ind" data-v="0">\ub4e4\uc5ec\uc4f0\uae30 \ub054</button><button class="ch" data-act="ind" data-v="1">\ub4e4\uc5ec\uc4f0\uae30 \ucf2c</button>' +
-      '<button class="ch" data-act="autoNext">\ub2e4\uc74c \ud654 \uc790\ub3d9 \uc774\uc5b4\ubd99\uc774\uae30</button></div>' +
-      '<div class="lb">\ub2e4\uc74c \ud654 \ubbf8\ub9ac \ubc88\uc5ed</div><div class="chips">' +
-      '<button class="ch" data-act="pre" data-v="0">\ub054</button><button class="ch" data-act="pre" data-v="1">\uc55e\ubd80\ubd84\ub9cc</button><button class="ch" data-act="pre" data-v="2">\uc804\uccb4</button></div>';
-    h += '<button class="wide" data-act="retrans">' + I.redo + '\uc9c0\uae08 \ubcf4\ub294 \ud654 \ub2e4\uc2dc \ubc88\uc5ed</button>' +
-      '<button class="wide" data-act="reset">\ubcf4\uae30 \uc124\uc815 \ucd08\uae30\ud654</button>' +
-      '<button class="wide" data-act="api">\ubc88\uc5ed \uc124\uc815 (\ud0a4 \u00b7 \ubaa8\ub378 \u00b7 \uc6a9\uc5b4\uc9d1)</button>';
+    h += '<div class="rowx"><span>\uc815\ub82c</span><div class="seg"><button data-act="just" data-v="1">\uc591\ucabd</button><button data-act="just" data-v="0">\uc67c\ucabd</button></div></div>' +
+      '<button class="rowx" data-act="ind"><span>\ub4e4\uc5ec\uc4f0\uae30</span><i class="tg" data-k="ind"></i></button></div>';
+    h += '<div class="lb">\uc77d\uae30</div><div class="grpbox">' +
+      '<button class="rowx" data-act="autoNext"><span>\uc774\uc5b4 \ubcf4\uae30</span><i class="tg" data-k="auto"></i></button>' +
+      '<div class="rowx"><span>\ubbf8\ub9ac \ubc88\uc5ed</span><div class="seg"><button data-act="pre" data-v="0">\ub054</button><button data-act="pre" data-v="1">\uc55e\ubd80\ubd84</button><button data-act="pre" data-v="2">\uc804\uccb4</button></div></div></div>';
+    h += '<div class="grpbox lnk"><button class="rowx" data-act="retrans"><span>\uc774 \ud654 \ub2e4\uc2dc \ubc88\uc5ed</span>' + I.next + '</button>' +
+      '<button class="rowx" data-act="api"><span>\ubc88\uc5ed \uc124\uc815</span>' + I.next + '</button>' +
+      '<button class="rowx" data-act="reset"><span class="mutd">\ubcf4\uae30 \uc124\uc815 \ucd08\uae30\ud654</span></button></div>';
     pn.innerHTML = h;
   }
   function themeList(dk) {
@@ -908,11 +996,29 @@
   }
   function syncPanel() {
     syncThemeRow();
-    [].forEach.call(pn.querySelectorAll('[data-act=font]'), function (b) { b.classList.toggle('sel', b.dataset.v === prefs.font); });
-    [].forEach.call(pn.querySelectorAll('[data-act=ind]'), function (b) { b.classList.toggle('sel', +b.dataset.v === +prefs.ind); });
-    pn.querySelector('[data-act=autoNext]').classList.toggle('sel', !!prefs.auto);
-    [].forEach.call(pn.querySelectorAll('[data-act=pre]'), function (b) { b.classList.toggle('sel', +b.dataset.v === +prefs.pre); });
-    STEPS.forEach(function (s) { pn.querySelector('b[data-k=' + s[0] + ']').textContent = s[5](prefs[s[0]]); });
+    [].forEach.call(pn.querySelectorAll('[data-act=pre]'), function (b) { b.classList.toggle('on', +b.dataset.v === +prefs.pre); });
+    [].forEach.call(pn.querySelectorAll('[data-act=just]'), function (b) { b.classList.toggle('on', +b.dataset.v === +prefs.just); });
+    [].forEach.call(pn.querySelectorAll('.tg'), function (g) { g.classList.toggle('on', !!prefs[g.dataset.k]); });
+    STEPS.forEach(function (s) { var e = pn.querySelector('b[data-k=' + s[0] + ']'); if (e) e.textContent = s[5](prefs[s[0]]); });
+  }
+  // \uae00\uaf34 \uace0\ub974\uae30: \uc885\ub958\ubcc4 \ud0ed, \uc774\ub984\uc744 \uadf8 \uae00\uaf34\ub85c \ubcf4\uc5ec \uc90c(\ubcf4\uc774\ub294 \uac83\ub9cc \ubd88\ub7ec\uc634), \ub204\ub974\uba74 \ubc14\ub85c \uc801\uc6a9
+  var fontTab = null, fontIO = null;
+  function openFonts() {
+    pn.dataset.mode = 'font';
+    if (!fontTab) fontTab = (FONTS[prefs.font] || {}).c || 'go';
+    var h = '<div class="grab"></div><div class="hd"><button class="bk" data-act="fontBack" aria-label="\ub4a4\ub85c">' + I.back + '</button><h3>\uae00\uaf34</h3><button class="x" data-act="close" aria-label="\ub2eb\uae30">' + I.x + '</button></div>' +
+      '<div class="seg full">' + FCAT.map(function (c) { return '<button data-act="fontTab" data-v="' + c[0] + '" class="' + (c[0] === fontTab ? 'on' : '') + '">' + c[1] + '</button>'; }).join('') + '</div><div class="flist">';
+    Object.keys(FONTS).filter(function (k) { return FONTS[k].c === fontTab; }).forEach(function (k) {
+      var F = FONTS[k];
+      h += '<button class="frow' + (prefs.font === k ? ' sel' : '') + '" data-act="font" data-v="' + k + '" style="font-family:' + esc(F.f) + '"><b>' + esc(F.n) + '</b><span>\uadf8\ub294 \ucc9c\ucc9c\ud788 \uace0\uac1c\ub97c \ub4e4\uc5c8\ub2e4.</span>' + I.check + '</button>';
+    });
+    h += '</div><div class="lb">\uc9c1\uc811 \uc785\ub825</div><div class="urlrow"><input class="url fontin" type="text" value="' + esc(prefs.fontCustom || '') + '" placeholder="\uae00\uaf34 \uc774\ub984 \ub610\ub294 \ud30c\uc77c \uc8fc\uc18c"><button class="go" data-act="fontCustom">\uc801\uc6a9</button></div>';
+    pn.innerHTML = h; pn.scrollTop = 0;
+    try { fontIO && fontIO.disconnect(); } catch (e) { }
+    if (window.IntersectionObserver) {
+      fontIO = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { loadFont(e.target.dataset.v); fontIO.unobserve(e.target); } }); }, { root: pn, rootMargin: '120px' });
+      [].forEach.call(pn.querySelectorAll('.frow'), function (r) { fontIO.observe(r); });
+    } else Object.keys(FONTS).forEach(function (k) { if (FONTS[k].c === fontTab) loadFont(k); });
   }
   function openSheet() { buildPanel(); pn.dataset.mode = 'set'; themeSnap = [prefs.mode, prefs.dayT, prefs.nightT]; syncPanel(); pn.scrollTop = 0; showSheet(); }
   function closeSheet() { dropLayer('sheet'); if (tmpTheme) { tmpTheme = null; applyPrefs(); } }
@@ -1580,7 +1686,10 @@
     if (!list.length) { pgB.innerHTML = '<div class="empty">\ubaa9\ucc28\uc5d0\uc11c \ud654 \ubaa9\ub85d\uc744 \ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694.</div><button class="btn pri" style="display:flex;margin:0 auto" data-act="pick" data-k="toc">\ub2e4\ub978 \ubaa9\ucc28 \ub9c1\ud06c \uace0\ub974\uae30</button>'; return; }
     // \ubaa9\ucc28\uc5d0 \uc548 \ubcf4\uc774\ub294 \ud654\ub77c\ub3c4 \uc774 \uc791\ud488\uc73c\ub85c \ubc88\uc5ed\ud574 \ub454 \ud654\ub294 \ub07c\uc6cc \ub123\uc74c (\uc0ac\uc774\ud2b8 \ubaa9\ucc28\uac00 \uc77c\ubd80\ub9cc \ubcf4\uc5ec \uc918\ub3c4 \uc77d\ub358 \uacf3\uc744 \ucc3e\uc744 \uc218 \uc788\uac8c)
     var have = {}; list.forEach(function (c) { have[ckey(c.u)] = 1; });
-    var I0 = cIndex(), extra = Object.keys(I0).filter(function (k) { return I0[k].w === it.ch.id && !have[k]; });
+    // '\ucc98\uc74c\ubd80\ud130 \uc77d\uae30' \uac19\uc740 \ub9c1\ud06c\ub294 1\ud654\uc640 \uacb9\uce58\ub2c8 \ube8c
+    if (list.length > 3) list = list.filter(function (c) { return !/^(\u958b\u59cb|\u5f00\u59cb|\u5f9e\u982d|\u4ece\u5934|\u7acb\u5373)\s*(\u95b1\u8b80|\u9605\u8bfb)$|^(\u5f00\u59cb\u9605\u8bfb|\u958b\u59cb\u95b1\u8b80)/.test(c.t.trim()); });
+    var trT = {}; list.forEach(function (c) { var tr0 = cacheHas(c.u); if (tr0 && tr0.t) trT[tr0.t] = 1; });
+    var I0 = cIndex(), extra = Object.keys(I0).filter(function (k) { return I0[k].w === it.ch.id && !have[k] && !trT[I0[k].t]; }); // \uac19\uc740 \ud654\uc758 2\ucabd\ucc98\ub7fc \uc81c\ubaa9\uc774 \uacb9\uce58\ub294 \uac74 \ud55c \ubc88\ub9cc
     if (!have[ckey(it.ch.url)] && extra.indexOf(ckey(it.ch.url)) < 0) extra.push(ckey(it.ch.url));
     if (extra.length) list = sortToc(list.concat(extra.map(function (k) { return { u: k, t: (I0[k] && I0[k].t) || it.title || k, extra: 1 }; })));
     // \ud654 \ubc88\ud638\uac00 \ud06c\uac8c \uac74\ub108\ub6f0\ub294 \uacf3: \uc0ac\uc774\ud2b8 \ubaa9\ucc28\uac00 \uc77c\ubd80\ub9cc \ubcf4\uc5ec \uc8fc\ub294 \uacbd\uc6b0 \uc54c\ub824 \uc90c
@@ -1594,9 +1703,9 @@
         esc(tr ? tr.t : c.t) + (tr && tr.t !== c.t ? '<small>' + esc(c.t) + '</small>' : '') + '</span>' +
         (isCur ? '<span class="bdg">\uc77d\ub294 \uc911</span>' : tr ? '<span class="bdg">\ubc88\uc5ed\ub428</span>' : '') + '</button>';
     });
-    pgB.innerHTML = '<div class="tbar"><button data-act="tocCur">\uc77d\ub294 \uacf3\uc73c\ub85c</button><button data-act="tocLastTr">\ub9c8\uc9c0\ub9c9 \ubc88\uc5ed</button><button data-act="tocTop">\ucc98\uc74c\uc73c\ub85c</button><button data-act="tocEnd">\ucd5c\uc2e0 \ud654\ub85c</button></div>' +
-      '<div class="hint" style="font-size:12.5px;color:var(--mut);margin:0 2px 8px">\uc804\uccb4 ' + list.length + '\ud654 \u00b7 \uc77d\uc74c ' + readN + ' \u00b7 \ubc88\uc5ed\ub428 ' + trN +
-      (gap ? '<br>' + gap[0] + (gap[1] > gap[0] ? '~' + gap[1] : '') + '\ud654\ub294 \uc0ac\uc774\ud2b8 \ubaa9\ucc28\uc5d0 \ubcf4\uc774\uc9c0 \uc54a\uc544\uc694. \ubc88\uc5ed\ud574 \ub454 \ud654\ub294 \ubaa9\ub85d\uc5d0 \ub123\uc5b4 \ub480\uc5b4\uc694.' : '') + '</div>' + rows.join('');
+    pgB.innerHTML = '<div class="tochd"><div class="tst"><b>' + list.length + '\ud654</b><span>\uc77d\uc74c ' + readN + '</span><span>\ubc88\uc5ed ' + trN + '</span></div>' +
+      '<div class="seg tj"><button data-act="tocTop" aria-label="\ucc98\uc74c\uc73c\ub85c">' + I.up + '</button><button data-act="tocCur">\uc77d\ub358 \uacf3</button><button data-act="tocLastTr">\ubc88\uc5ed \ub05d</button><button data-act="tocEnd" aria-label="\ucd5c\uc2e0 \ud654\ub85c">' + I.down + '</button></div></div>' +
+      (gap ? '<p class="tgap">' + gap[0] + (gap[1] > gap[0] ? '~' + gap[1] : '') + '\ud654\ub294 \uc0ac\uc774\ud2b8 \ubaa9\ucc28\uc5d0 \uc5c6\uc5b4\uc694</p>' : '') + rows.join('');
     var c = pgB.querySelector('.row.cur'); if (c) pgB.scrollTop = c.offsetTop - pgB.clientHeight / 2;
   }
 
@@ -1677,14 +1786,23 @@
     }
     if (name === 'tmode') { prefs.mode = t.dataset.v; tmpTheme = null; savePrefs(); applyPrefs(); syncThemeRow(); return; }
     if (name === 'themeUndo') { if (themeSnap) { prefs.mode = themeSnap[0]; prefs.dayT = themeSnap[1]; prefs.nightT = themeSnap[2]; tmpTheme = null; savePrefs(); applyPrefs(); syncThemeRow(); toast('\ucc98\uc74c \ud14c\ub9c8\ub85c \ub418\ub3cc\ub838\uc5b4\uc694'); } return; }
-    if (name === 'font') { prefs.font = t.dataset.v; savePrefs(); applyPrefs(); return; }
-    if (name === 'pre') { prefs.pre = +t.dataset.v; savePrefs(); applyPrefs(); toast(['\ub2e4\uc74c \ud654\ub97c \ubbf8\ub9ac \ubc88\uc5ed\ud558\uc9c0 \uc54a\uc544\uc694', '\ub2e4\uc74c \ud654 \uc55e\ubd80\ubd84\ub9cc \ubbf8\ub9ac \ubc88\uc5ed\ud574\uc694', '\ub2e4\uc74c \ud654 \uc804\uccb4\ub97c \ubbf8\ub9ac \ubc88\uc5ed\ud574\uc694'][prefs.pre]); return; }
-    if (name === 'ind') { prefs.ind = +t.dataset.v; savePrefs(); applyPrefs(); return; }
-    if (name === 'autoNext') { prefs.auto = prefs.auto ? 0 : 1; savePrefs(); applyPrefs(); toast(prefs.auto ? '\ub05d\uae4c\uc9c0 \uc77d\uc73c\uba74 \ub2e4\uc74c \ud654\uac00 \uc790\ub3d9\uc73c\ub85c \ubd99\uc5b4\uc694' : '\uc790\ub3d9 \uc774\uc5b4\ubd99\uc774\uae30\ub97c \uaed0\uc5b4\uc694'); return; }
+    if (name === 'font') { prefs.font = t.dataset.v; savePrefs(); applyPrefs(); [].forEach.call(pn.querySelectorAll('.frow'), function (r) { r.classList.toggle('sel', r.dataset.v === prefs.font); }); return; }
+    if (name === 'fontOpen') { fontTab = null; openFonts(); return; }
+    if (name === 'fontTab') { fontTab = t.dataset.v; openFonts(); return; }
+    if (name === 'fontBack') { buildPanel(); pn.dataset.mode = 'set'; syncPanel(); return; }
+    if (name === 'fontCustom') {
+      var fv = (pn.querySelector('.fontin') || {}).value || ''; fv = fv.trim();
+      if (!fv) { toast('\uae00\uaf34 \uc774\ub984\uc774\ub098 \uc8fc\uc18c\ub97c \uc368 \uc8fc\uc138\uc694'); return; }
+      prefs.fontCustom = fv; prefs.font = 'custom'; savePrefs(); applyPrefs(); openFonts(); toast('\uc801\uc6a9\ud588\uc5b4\uc694. \uae00\uaf34\uc774 \uc548 \ubc14\ub00c\uba74 \uc774\ub984\uc774\ub098 \uc8fc\uc18c\ub97c \ud655\uc778\ud574 \uc8fc\uc138\uc694'); return;
+    }
+    if (name === 'just') { prefs.just = +t.dataset.v; savePrefs(); applyPrefs(); syncPanel(); return; }
+    if (name === 'pre') { prefs.pre = +t.dataset.v; savePrefs(); applyPrefs(); syncPanel(); return; }
+    if (name === 'ind') { prefs.ind = prefs.ind ? 0 : 1; savePrefs(); applyPrefs(); syncPanel(); return; }
+    if (name === 'autoNext') { prefs.auto = prefs.auto ? 0 : 1; savePrefs(); applyPrefs(); syncPanel(); return; }
     if (name === 'step') {
       var S = STEPS.filter(function (s) { return s[0] === t.dataset.v; })[0];
       var x = Math.round((prefs[S[0]] + S[2] * +t.dataset.d) * 100) / 100;
-      prefs[S[0]] = Math.min(S[4], Math.max(S[3], x)); savePrefs(); applyPrefs(); return;
+      prefs[S[0]] = Math.min(S[4], Math.max(S[3], x)); savePrefs(); applyPrefs(); syncPanel(); return;
     }
     if (name === 'reset') { prefs = fill({ v: 2 }); savePrefs(); applyPrefs(); toast('\ubcf4\uae30 \uc124\uc815\uc744 \ucd08\uae30\ud654\ud588\uc5b4\uc694'); return; }
     if (name === 'api') { closeSheet(); window.open(SETTINGS_URL, 'nvtrSettings'); return; }
