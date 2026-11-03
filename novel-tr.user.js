@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.6.3
+// @version      1.6.4
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -112,7 +112,22 @@
     for (var j = 0; j < all.length; j++) { var v = own(all[j]); if (v > b) { b = v; best = all[j]; } }
     return best;
   }
+  // \ud654\uba74\uc5d0 \ubcf4\uc774\ub294 \uc21c\uc11c\uc640 HTML \uc21c\uc11c\uac00 \ub2e4\ub978 \uc0ac\uc774\ud2b8(\ubb38\ub2e8\uc744 \uc11e\uc5b4 \ub450\uace0 CSS\ub85c \uc81c\uc790\ub9ac\uc5d0 \ubcf4\uc774\uac8c \ud558\ub294 \ubcf5\uc0ac \ubc29\uc9c0) \ub300\ube44:
+  // \uc2e4\uc81c\ub85c \uadf8\ub824\uc9c4 \uc704\uce58(\uc704\u2192\uc544\ub798) \uc21c\uc11c\ub97c data-nvo\ub85c \uc801\uc5b4 \ub450\uba74 lines()\uac00 \uadf8 \uc21c\uc11c\ub85c \uc77d\uc74c
+  function visualOrder(el) {
+    try {
+      if (!el || !el.ownerDocument || !el.ownerDocument.defaultView) return;
+      var kids = [].slice.call(el.children).filter(function (k) { return hanLen(k.textContent) > 0; });
+      if (kids.length < 4) return;
+      var rs = kids.map(function (k) { var r = k.getBoundingClientRect(); return { k: k, t: r.top, l: r.left, h: r.height }; });
+      if (!rs.some(function (r) { return r.h > 0; })) return; // \ud654\uba74\uc5d0 \uc548 \uadf8\ub824\uc9d0(\ubc30\uce58 \uc815\ubcf4 \uc5c6\uc74c)
+      var inv = 0; for (var i = 1; i < rs.length; i++) if (rs[i].h > 0 && rs[i - 1].h > 0 && rs[i].t < rs[i - 1].t - 2) inv++;
+      if (inv < Math.max(2, rs.length * 0.2)) return; // \uac70\uc758 \uc21c\uc11c\ub300\ub85c\uba74 \uadf8\ub300\ub85c
+      rs.slice().sort(function (a, b) { return a.t - b.t || a.l - b.l; }).forEach(function (r, n) { r.k.setAttribute('data-nvo', n); });
+    } catch (e) { }
+  }
   function lines(el) {
+    visualOrder(el);
     // \uc2e4\uc81c \ud654\uba74\uc5d0\uc11c \uc228\uaca8\uc9c4 \uc694\uc18c\ub294 \ube7c\uace0 \ubcf5\uc0ac (\uc0ac\uc774\ud2b8\uac00 \ub07c\uc6cc \ub123\uc740 \uac00\uc9dc \uae00\uc790 \ubc29\uc9c0)
     var win = el.ownerDocument && el.ownerDocument.defaultView, hid = [];
     if (win && win.getComputedStyle) {
@@ -124,6 +139,8 @@
     var c = el.cloneNode(true);
     hid.forEach(function (x) { x.removeAttribute('data-nvhid'); });
     c.querySelectorAll('[data-nvhid],[hidden],[style*="display:none"],[style*="display: none"],[style*="visibility:hidden"],[style*="font-size:0"]').forEach(function (x) { x.remove(); });
+    var ord = [].filter.call(c.children, function (k) { return k.hasAttribute('data-nvo'); });
+    if (ord.length > 3) ord.sort(function (a, b) { return a.getAttribute('data-nvo') - b.getAttribute('data-nvo'); }).forEach(function (k) { c.appendChild(k); });
     c.querySelectorAll('script,style,a,button,ins,iframe,noscript,h1').forEach(function (x) { x.remove(); });
     c.querySelectorAll('br').forEach(function (x) { x.replaceWith('\n'); });
     c.querySelectorAll('p,div').forEach(function (x) { x.append('\n'); });
@@ -133,7 +150,14 @@
   }
   function titleOf(doc) {
     var h = doc.querySelector('h1') || doc.querySelector('.bookname h1, .title, h2');
-    return (h ? h.textContent : doc.title).trim();
+    var t = (h ? h.textContent : doc.title).replace(/\s+/g, ' ').trim();
+    // \ud654 \uc81c\ubaa9\uc774 \ubc88\ud638\ubfd0\uc774\uba74(\uc608: "027") \ud398\uc774\uc9c0 \uc81c\ubaa9(<title>)\uc5d0 \uc18c\uc81c\ubaa9\uc774 \ub354 \uc788\ub294\uc9c0 \ud655\uc778
+    var bare = t.replace(/[(\uff08]\s*\d+\s*\/\s*\d+\s*[)\uff09]/, '').trim();
+    if (/^(\u7b2c\s*)?[\d\u96f6\u3007\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\u767e\u5343]{1,6}\s*[\u7ae0\u56de\u8282\u7bc0\u8bdd\u8a71]?$/.test(bare) && doc.title) {
+      var seg = doc.title.split(/\s[-_|\uff5c\u2013\u2014]\s|_|\uff5c/)[0].replace(/\s+/g, ' ').trim();
+      if (seg.indexOf(bare) === 0 && seg.length > bare.length + 1 && seg.length < 60) t = t.replace(bare, seg);
+    }
+    return t;
   }
   function linkCands(doc, base) {
     var out = [], seen = {};
@@ -225,7 +249,8 @@
       '3) \uc778\uba85\u00b7\uc9c0\uba85\u00b7\ubb34\uacf5\uba85 \ub4f1 \uace0\uc720\uba85\uc0ac\ub294 \ud55c\uc790 \ub3c5\uc74c\uc73c\ub85c \uc77c\uad00\ub418\uac8c \uc62e\uae34\ub2e4.\n' +
       '4) \uc0ac\uc774\ud2b8 \uad11\uace0, \ud64d\ubcf4, \uc548\ub0b4 \ubb38\uad6c\ub85c \ubcf4\uc774\ub294 \uc904\uc740 \ucd9c\ub825\ud558\uc9c0 \uc54a\ub294\ub2e4.\n' +
       '5) \uc785\ub825\uc774 "[\uc81c\ubaa9]"\uc73c\ub85c \uc2dc\uc791\ud558\ub294 \uc904\uc774 \uc788\uc73c\uba74 \uadf8 \uc904\uc740 "[\uc81c\ubaa9] \ubc88\uc5ed\ub41c \uc81c\ubaa9" \ud615\uc2dd\uc73c\ub85c \ucd9c\ub825\ud55c\ub2e4.\n' +
-      '6) \uc785\ub825\uc740 \uc774\ubbf8 \ucd9c\ud310\ub41c \ud5c8\uad6c\uc758 \uc18c\uc124\uc774\ub2e4. \uc804\ud22c\u00b7\ud3ed\ub825\u00b7\ubc94\uc8c4\u00b7\uc8fd\uc74c \uac19\uc740 \uc5b4\ub450\uc6b4 \uc7a5\uba74\ub3c4 \uc774\uc57c\uae30\uc758 \uc77c\ubd80\uc774\ubbc0\ub85c, \ub0b4\uc6a9\uc744 \ud310\ub2e8\ud558\uac70\ub098 \uac70\uc808\u00b7\uc694\uc57d\u00b7\uc21c\ud654\ud558\uc9c0 \ub9d0\uace0 \uc6d0\ubb38\uc758 \uc758\ubbf8 \uadf8\ub300\ub85c \ubc88\uc5ed\ub9cc \ud55c\ub2e4.' +
+      '6) \uc785\ub825\uc740 \uc774\ubbf8 \ucd9c\ud310\ub41c \ud5c8\uad6c\uc758 \uc18c\uc124\uc774\ub2e4. \uc804\ud22c\u00b7\ud3ed\ub825\u00b7\ubc94\uc8c4\u00b7\uc8fd\uc74c \uac19\uc740 \uc5b4\ub450\uc6b4 \uc7a5\uba74\ub3c4 \uc774\uc57c\uae30\uc758 \uc77c\ubd80\uc774\ubbc0\ub85c, \ub0b4\uc6a9\uc744 \ud310\ub2e8\ud558\uac70\ub098 \uac70\uc808\u00b7\uc694\uc57d\u00b7\uc21c\ud654\ud558\uc9c0 \ub9d0\uace0 \uc6d0\ubb38\uc758 \uc758\ubbf8 \uadf8\ub300\ub85c \ubc88\uc5ed\ub9cc \ud55c\ub2e4.\n' +
+      '7) \ubb38\ub2e8 \uc21c\uc11c\uac00 \uc5b4\uc0c9\ud558\uac70\ub098 \ub4a4\uc11e\uc5ec \ubcf4\uc5ec\ub3c4 \uace0\uce58\uac70\ub098 \uadf8 \uc0ac\uc2e4\uc744 \uc124\uba85\ud558\uc9c0 \ub9d0\uace0, \uc785\ub825\ub41c \uc21c\uc11c \uadf8\ub300\ub85c \ud55c \uc904\uc529 \ubc88\uc5ed\ud55c\ub2e4. \ubc88\ud638(1. 2.)\ub97c \ubd99\uc774\uac70\ub098 \uc6d0\ubb38 \uc911\uad6d\uc5b4\ub97c \ub2e4\uc2dc \uc801\uc9c0 \uc54a\ub294\ub2e4.' +
       (C.g ? '\n\n\ub2e4\uc74c \uc6a9\uc5b4\uc9d1\uc744 \ubc18\ub4dc\uc2dc \ub530\ub978\ub2e4:\n' + C.g : '');
   }
   function urlFor(C, loc) {
@@ -398,9 +423,33 @@
   // \uc0ac\uc774\ud2b8\uac00 \ubcf8\ubb38 \ub300\uc2e0 \ub744\uc6b4 \uc548\ub0b4\ubb38 ("\uc774 \ud654 \ub0b4\uc6a9\uc774 \uc5c6\uc74c/\uc218\ub9ac \uc911/\ubaa9\ub85d\uc5d0\uc11c \ub2e4\uc2dc \uace0\ub974\uc138\uc694" \ub4f1)
   var MISSING = /\u7ae0[\u7bc0\u8282]?(\u5167\u5bb9|\u5185\u5bb9)?(\u7f3a\u5931|\u4e0d\u5b58\u5728|\u672a\u627e\u5230|\u627e\u4e0d\u5230)|\u5167\u5bb9\u7f3a\u5931|\u5185\u5bb9\u7f3a\u5931|\u6b63\u5728\u4fee[\u5fa9\u590d]|\u5c1a\u672a\u6536[\u9304\u5f55]|[\u8acb\u8bf7][\u5f9e\u4ece]\u76ee[\u9304\u5f55]\u91cd\u65b0[\u9078\u9009]|\u672c\u7ae0[\u7bc0\u8282]?(\u4e0d\u5b58\u5728|\u5df2[\u522a\u5220]\u9664)|\u7ae0[\u7bc0\u8282]\u5df2[\u522a\u5220]\u9664|[\u5167\u5185]\u5bb9(\u6b63\u5728)?\u66f4\u65b0\u4e2d|\u66ab\u7121\u5167\u5bb9|\u6682\u65e0\u5185\u5bb9/;
   function siteNotice(ls) { var j = ls.join(''); return hanLen(j) < 150 && MISSING.test(j) ? j : ''; }
+  // \ubaa8\ub378\uc774 \ubc88\uc5ed \ub300\uc2e0 '\uc0dd\uac01\ud55c \uacfc\uc815'\uc774\ub098 \uc6d0\ubb38\uc744 \uc11e\uc5b4 \ub0b4\ubcf4\ub0b8 \uacbd\uc6b0 \uc54c\uc544\ucc54
+  var META = /^\s*(\uc6d0\ubb38|\ucc38\uace0|\uc8fc\uc758|\uc124\uba85|\ud574\uc124|\ubd84\uc11d|note|source)\s*[:\uff1a)\]]|^\s*\u203b|(\uc6d0\ubb38|\ubb38\ub2e8)[^\n]{0,20}(\uc5ed\uc21c|\uac70\uafb8\ub85c|\ubcf5\uc6d0|\uc7ac\ubc30\uc5f4|\ub4a4\uc11e)|\ubc88\uc5ed(\ud55c\ub2e4|\ud558\uaca0\ub2e4|\ud588\ub2e4|\ud558\uc600\ub2e4|\ud569\ub2c8\ub2e4|\ud558\uaca0\uc2b5\ub2c8\ub2e4)\.?\s*$/i;
+  function badOutput(out, src) {
+    var all = out.join(''), han = hanLen(all), sh = hanLen((src || []).join(''));
+    if (han > 30 && sh && han > sh * 0.5) return true; // \uc6d0\ubb38 \uc911\uad6d\uc5b4\ub97c \uc0c1\ub2f9 \ubd80\ubd84 \ub2e4\uc2dc \uc801\uc5b4 \ub0c4
+    var meta = out.filter(function (l) { return META.test(l); }).length, num = out.filter(function (l) { return /^\d{1,3}[\.)]\s/.test(l); }).length;
+    return meta > 0 || (num >= 3 && num >= out.length * 0.3);
+  }
+  function cleanOutput(out) { // \uadf8\ub798\ub3c4 \uc11e\uc5ec \ub098\uc624\uba74: \uc124\uba85 \uc904\u00b7\uc911\uad6d\uc5b4 \uc904\u00b7\ubc88\ud638\ub97c \uac77\uc5b4\ub0c4
+    return out.filter(function (l) { var h = hanLen(l), g = (l.match(/[\uac00-\ud7a3]/g) || []).length; return !META.test(l) && !(h > 6 && h > g * 2); })
+      .map(function (l) { return l.replace(/^\d{1,3}[\.)]\s+/, ''); });
+  }
   async function callLines(ls, temp, say, model, onDelta) {
-    var out = (await callApi(ls.join('\n'), temp, null, say, model, onDelta)).split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    function run(t, sys) { return callApi(ls.join('\n'), t, sys, say, model, onDelta).then(function (o) { return o.split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean); }); }
+    var out = await run(temp, null);
     if (looksRefusal(out, ls)) throw new Error('\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c (REFUSAL)');
+    if (badOutput(out, ls)) {
+      say && say('\ubc88\uc5ed\uc774 \uc774\uc0c1\ud558\uac8c \ub098\uc640 \ub2e4\uc2dc \uc694\uccad\ud558\ub294 \uc911');
+      var C = cfg() || {};
+      try {
+        var o2 = await run(0.2, sysPrompt(C) + '\n\n\uc911\uc694: \uc9c0\ub09c \uc751\ub2f5\uc5d0 \uc124\uba85\uc774\ub098 \uc6d0\ubb38\uc774 \uc11e\uc600\ub2e4. \uc774\ubc88\uc5d0\ub294 \ud55c\uad6d\uc5b4 \ubc88\uc5ed\ubb38\ub9cc, \uc785\ub825\uacfc \uac19\uc740 \uc21c\uc11c\ub85c, \ud55c \ubb38\ub2e8\uc5d0 \ud55c \uc904\uc529\ub9cc \ucd9c\ub825\ud558\ub77c.');
+        if (!badOutput(o2, ls)) return o2;
+        out = o2;
+      } catch (e) { }
+      out = cleanOutput(out);
+      if (!out.length) throw new Error('\ubc88\uc5ed \uacb0\uacfc \uc5c6\uc74c (\uc124\uba85\ub9cc \ub098\uc634)');
+    }
     return out;
   }
   async function translateLines(ls, depth, temp, say, onDelta) {
@@ -1126,7 +1175,7 @@
       f.setAttribute('sandbox', 'allow-scripts allow-same-origin');
       f.style.cssText = 'position:fixed;left:-10000px;top:0;width:420px;height:900px;border:0;visibility:hidden';
       function snap() {
-        try { var d = f.contentDocument; return d && d.documentElement ? new DOMParser().parseFromString(d.documentElement.outerHTML, 'text/html') : null; } catch (e) { return null; }
+        try { var d = f.contentDocument; try { visualOrder(findBody(d)); } catch (x) { } return d && d.documentElement ? new DOMParser().parseFromString(d.documentElement.outerHTML, 'text/html') : null; } catch (e) { return null; }
       }
       function end(d) { if (fin) return; fin = true; clearInterval(iv); setTimeout(function () { f.remove(); }, 50); d ? res(d) : rej(new Error('\ud398\uc774\uc9c0\ub97c \uc5f4\uc9c0 \ubabb\ud588\uc5b4\uc694')); }
       var iv = setInterval(function () {
