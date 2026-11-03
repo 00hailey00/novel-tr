@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.7.2
+// @version      1.7.3
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -998,10 +998,13 @@
     '.row.cur{background:color-mix(in srgb,var(--ac) 10%,transparent);border-radius:10px;padding-left:10px}',
     '.row.cur .rt{color:var(--ac);font-weight:600}',
     '.bdg{flex:none;font-size:11px;padding:3px 8px;border-radius:999px;background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--ac);font-weight:600}',
-    '.tochd{position:sticky;top:-16px;z-index:1;display:flex;align-items:center;gap:10px;margin:-16px -18px 4px;padding:12px 18px 10px;background:var(--bg);border-bottom:1px solid color-mix(in srgb,var(--bd) 60%,transparent)}',
-    '.tst{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--mut);white-space:nowrap}',
+    '.tochd{position:sticky;top:-16px;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:-16px -18px 4px;padding:12px 18px 10px;background:var(--bg);border-bottom:1px solid color-mix(in srgb,var(--bd) 60%,transparent)}',
+    '.tst{flex:1 1 100%;min-width:0;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut);white-space:nowrap}',
+    '.tst .trf{margin-left:auto;display:flex;align-items:center;gap:4px;min-height:32px;padding:0 4px 0 8px;font-size:13px;color:var(--ac)}',
+    '.tst .trf svg{width:16px;height:16px}',
+    '.seg.tj{flex:1 1 100%}',
     '.tst b{font-size:15px;color:var(--fg);font-weight:700}',
-    '.seg.tj button{padding:0 11px;display:flex;align-items:center}',
+    '.seg.tj button{flex:1;padding:0 8px;display:flex;align-items:center;justify-content:center}',
     '.seg.tj svg{width:18px;height:18px}',
     '.tgap{font-size:12.5px;color:var(--mut);margin:8px 2px 2px}',
     '.tbar button{flex:1;min-height:44px;border-radius:12px;border:1px solid var(--bd);font-size:13px}',
@@ -1974,7 +1977,7 @@
         (lab ? '<i class="rn">' + lab + '</i>' : '') + esc(subT || subO || (lab ? '' : c.t)) + (small ? '<small>' + esc(small) + '</small>' : '') + '</span>' +
         (isCur ? '<span class="bdg">\uc77d\ub294 \uc911</span>' : tr ? '<span class="bdg">\ubc88\uc5ed\ub428</span>' : '') + '</button>';
     });
-    pgB.innerHTML = '<div class="tochd"><div class="tst"><b>' + list.length + '\ud654</b><span>\uc77d\uc74c ' + readN + '</span><span>\ubc88\uc5ed ' + trN + '</span></div>' +
+    pgB.innerHTML = '<div class="tochd"><div class="tst"><b>' + list.length + '\ud654</b><span>\uc77d\uc74c ' + readN + '</span><span>\ubc88\uc5ed ' + trN + '</span><button class="trf" data-act="tocRefresh">' + I.redo + '\uc0c8\ub85c\uace0\uce68</button></div>' +
       '<div class="seg tj"><button data-act="tocTop" aria-label="\ucc98\uc74c\uc73c\ub85c">' + I.up + '</button><button data-act="tocCur">\uc77d\ub358 \uacf3</button><button data-act="tocLastTr">\ubc88\uc5ed \ub05d</button><button data-act="tocEnd" aria-label="\ucd5c\uc2e0 \ud654\ub85c">' + I.down + '</button></div></div>' +
       (gap ? '<p class="tgap">' + gap[0] + (gap[1] > gap[0] ? '~' + gap[1] : '') + '\ud654\ub294 \uc0ac\uc774\ud2b8 \ubaa9\ucc28\uc5d0 \uc5c6\uc5b4\uc694</p>' : '') +
       (noSub.length > 2 ? '<button class="tsub" data-act="subFind">\uc18c\uc81c\ubaa9\uc774 \uc5c6\ub294 \ud654 ' + noSub.length + '\uac1c \u00b7 \uc6d0\ubcf8\uc5d0\uc11c \ucc3e\uc544\ubcf4\uae30</button>' : '') + rows.join('');
@@ -2043,6 +2046,7 @@
     if (name === 'tagAdd') { addTag(t.dataset.id, pn.querySelector('.tagin')); return; }
     if (name === 'tagDel') { var L3 = libAll(), w3 = L3[t.dataset.id]; if (w3 && w3.tags) { w3.tags = w3.tags.filter(function (x) { return x !== t.dataset.tag; }); gset('lib', L3); renderLibBody(); openWork(t.dataset.id); } return; }
     if (name === 'open') { openChapter(t.dataset.u, pageMode === 'lib' ? 'lib' : 'toc'); return; }
+    if (name === 'tocRefresh') { tocMem = {}; renderToc(); return; }
     if (name === 'tocCur' || name === 'tocTop' || name === 'tocEnd' || name === 'tocLastTr') {
       var trs = pgB.querySelectorAll('.row.tr');
       var r = name === 'tocTop' ? pgB.querySelector('.row') : name === 'tocEnd' ? pgB.querySelector('.row:last-of-type') : name === 'tocLastTr' ? trs[trs.length - 1] : (pgB.querySelector('.row.cur') || trs[trs.length - 1]);
