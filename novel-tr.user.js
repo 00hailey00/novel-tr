@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.6.2
+// @version      1.6.3
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -726,8 +726,8 @@
     '.grp p.tr.live{animation:none}',
     '.app.dlg1 .dq{color:color-mix(in srgb,var(--ac) 72%,var(--fg))}',
     '.app.dlg1 .dq.th{color:color-mix(in srgb,var(--ac) 45%,var(--fg));font-style:italic}',
-    '.app.dlg2 .dq{background:linear-gradient(transparent 58%,color-mix(in srgb,var(--ac) 30%,transparent) 58%);-webkit-box-decoration-break:clone;box-decoration-break:clone}',
-    '.app.dlg2 .dq.th{background:linear-gradient(transparent 58%,color-mix(in srgb,var(--mut) 30%,transparent) 58%)}',
+    '.app.dlg2 .dq{background:linear-gradient(transparent 12%,color-mix(in srgb,var(--ac) 26%,transparent) 12%,color-mix(in srgb,var(--ac) 26%,transparent) 94%,transparent 94%);border-radius:3px;padding:0 2px;margin:0 -2px;-webkit-box-decoration-break:clone;box-decoration-break:clone}',
+    '.app.dlg2 .dq.th{background:linear-gradient(transparent 12%,color-mix(in srgb,var(--mut) 24%,transparent) 12%,color-mix(in srgb,var(--mut) 24%,transparent) 94%,transparent 94%)}',
     '.app.dk .wrap{font-weight:370;-webkit-font-smoothing:antialiased}',
     '.app.dk .cht{font-weight:600}',
     '.grp p.hold{background:color-mix(in srgb,var(--ac) 12%,transparent)}',
