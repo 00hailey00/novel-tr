@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.5.9
+// @version      1.6.0
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -740,15 +740,15 @@
     '.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:52px;padding:0 24px;border-radius:16px;border:1px solid var(--bd);background:var(--card);font-size:15px;font-weight:600;margin-top:14px;font-family:var(--ui)}',
     '.btn.pri{background:var(--ac);border-color:var(--ac);color:#fff}',
     // \ubab0\uc785 \ubaa8\ub4dc: \uc704\u00b7\uc544\ub798 \uba54\ub274\ub294 \ud0ed\ud560 \ub54c\ub9cc
-    '.top,.bot{position:fixed;left:0;right:0;z-index:3;font-family:var(--ui);background:color-mix(in srgb,var(--card) 86%,transparent);-webkit-backdrop-filter:saturate(1.8) blur(18px);backdrop-filter:saturate(1.8) blur(18px);transition:transform .32s cubic-bezier(.2,.8,.2,1),opacity .25s}',
-    '.top{top:0;display:flex;align-items:center;gap:4px;padding:calc(6px + env(safe-area-inset-top)) 6px 6px;border-bottom:1px solid color-mix(in srgb,var(--bd) 70%,transparent);transform:translateY(-105%)}',
+    '.top,.bot{position:fixed;left:0;right:0;z-index:3;font-family:var(--ui);background:color-mix(in srgb,var(--card) 97%,var(--bg));will-change:transform;backface-visibility:hidden;transition:transform .32s cubic-bezier(.2,.8,.2,1)}', // \ud750\ub9bc \ud6a8\uacfc(backdrop-filter)\ub294 \ud30c\uc774\uc5b4\ud3ed\uc2a4 \ubaa8\ubc14\uc77c\uc5d0\uc11c \ubc84\ud2bc \uae00\uc790\uac00 \uc548 \uadf8\ub824\uc9c0\ub294 \ubb38\uc81c\uac00 \uc788\uc5b4 \ube8c
+    '.top{top:0;display:flex;align-items:center;gap:4px;padding:calc(6px + env(safe-area-inset-top)) 6px 6px;border-bottom:1px solid color-mix(in srgb,var(--bd) 70%,transparent);transform:translate3d(0,-105%,0)}',
     '.top .tt{flex:1;min-width:0;text-align:center;line-height:1.3}',
     '.top .tt b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.top .tt span{display:block;font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.ib{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center}',
     '.ib:active,.nb:active,.btn:active,.pn button:active,.tile:active,.row:active{transform:scale(.95)}',
-    '.bot{bottom:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent);transform:translateY(105%)}',
-    '.app.ui .top,.app.ui .bot{transform:none}',
+    '.bot{bottom:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid color-mix(in srgb,var(--bd) 70%,transparent);transform:translate3d(0,105%,0)}',
+    '.app.ui .top,.app.ui .bot{transform:translate3d(0,0,0)}',
     '.btns{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}',
     '.nb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:58px;border-radius:16px;font-size:11.5px;color:var(--mut);transition:transform .12s}',
     '.nb svg{width:24px;height:24px;color:var(--fg)}',
