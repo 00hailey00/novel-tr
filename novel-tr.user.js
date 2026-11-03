@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.5.5
+// @version      1.5.6
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -526,15 +526,37 @@
   }
 
   // ===================== \ubcf4\uae30 \uc124\uc815 =====================
+  // \ud14c\ub9c8: \ub0ae(\ubc1d\uc740) / \ubc24(\uc5b4\ub450\uc6b4). VS Code \ub4f1\uc5d0\uc11c \uc778\uae30 \uc788\ub294 \uc0c9 \uc870\ud569\uc744 \uc18c\uc124 \uc77d\uae30\uc5d0 \ub9de\uac8c \uae00\uc528 \ubc1d\uae30\ub97c \ub0ae\ucdb0 \ub2e4\ub4ec\uc74c
   var THEMES = {
-    auto: null,
     light: { n: '\ubc1d\uac8c', bg: '#fbfbfa', fg: '#1f2023', mut: '#8b8d93', card: '#ffffff', bd: '#e6e6e3', ac: '#3b6fe0' },
     paper: { n: '\uc885\uc774', bg: '#f5efe2', fg: '#3d342a', mut: '#9a8d78', card: '#fbf7ee', bd: '#e2d8c3', ac: '#a35a2c' },
     green: { n: '\uc5f0\ub450', bg: '#e6eedb', fg: '#26301f', mut: '#7c8a6c', card: '#eff5e7', bd: '#ccd9ba', ac: '#3b7a3a' },
-    gray: { n: '\ud68c\uc0c9', bg: '#2f3237', fg: '#c4c5c8', mut: '#8f939a', card: '#383c42', bd: '#474b53', ac: '#94aede', dark: 1 },
+    sepia: { n: '\uc138\ud53c\uc544', bg: '#f1e7d0', fg: '#4a3b2a', mut: '#9c8a6e', card: '#f7efdc', bd: '#e0d2b4', ac: '#8a5a2b' },
+    solar: { n: '\uc194\ub77c\ub77c\uc774\uc988\ub4dc', bg: '#fdf6e3', fg: '#586e75', mut: '#93a1a1', card: '#fffbef', bd: '#eee8d5', ac: '#268bd2' },
+    github: { n: '\uae43\ud5c8\ube0c', bg: '#ffffff', fg: '#24292f', mut: '#6e7781', card: '#f6f8fa', bd: '#d0d7de', ac: '#0969da' },
+    latte: { n: '\ub77c\ud14c', bg: '#eff1f5', fg: '#4c4f69', mut: '#8c8fa1', card: '#e6e9ef', bd: '#ccd0da', ac: '#8839ef' },
+    dawn: { n: '\ub85c\uc81c \uc0c8\ubcbd', bg: '#faf4ed', fg: '#575279', mut: '#9893a5', card: '#fffaf3', bd: '#f2e9e1', ac: '#b4637a' },
     dark: { n: '\uc5b4\ub461\uac8c', bg: '#18191b', fg: '#b4b2ac', mut: '#7f7e79', card: '#212225', bd: '#303236', ac: '#86a2d0', dark: 1 }, // \uae00\uc528\ub97c \ub0ae\ucdb0 \ub208\ubd80\uc2ec \uc904\uc784 (\ub300\ube44 \uc57d 8:1)
-    black: { n: '\ube14\ub799', bg: '#0b0b0b', fg: '#a3a29e', mut: '#6c6b68', card: '#151516', bd: '#242426', ac: '#7591c2', dark: 1 }
+    gray: { n: '\ud68c\uc0c9', bg: '#2f3237', fg: '#c4c5c8', mut: '#8f939a', card: '#383c42', bd: '#474b53', ac: '#94aede', dark: 1 },
+    black: { n: '\ube14\ub799', bg: '#0b0b0b', fg: '#a3a29e', mut: '#6c6b68', card: '#151516', bd: '#242426', ac: '#7591c2', dark: 1 },
+    nord: { n: '\ub178\ub4dc', bg: '#2e3440', fg: '#c8ced9', mut: '#7f899b', card: '#3b4252', bd: '#434c5e', ac: '#88c0d0', dark: 1 },
+    tokyo: { n: '\ub3c4\ucfc4 \ub098\uc774\ud2b8', bg: '#1a1b26', fg: '#a9b1d6', mut: '#606a96', card: '#24283b', bd: '#2f334d', ac: '#7aa2f7', dark: 1 },
+    gruv: { n: '\uadf8\ub8e8\ube0c\ubc15\uc2a4', bg: '#282828', fg: '#d5c4a1', mut: '#928374', card: '#32302f', bd: '#3c3836', ac: '#fabd2f', dark: 1 },
+    onedark: { n: '\uc6d0 \ub2e4\ud06c', bg: '#282c34', fg: '#abb2bf', mut: '#6b7280', card: '#2c313a', bd: '#3e4451', ac: '#61afef', dark: 1 },
+    mocha: { n: '\ubaa8\uce74', bg: '#1e1e2e', fg: '#bac2de', mut: '#7a7f99', card: '#262637', bd: '#313244', ac: '#cba6f7', dark: 1 },
+    rose: { n: '\ub85c\uc81c \ud30c\uc778', bg: '#191724', fg: '#c9c6e0', mut: '#76728f', card: '#1f1d2e', bd: '#26233a', ac: '#ebbcba', dark: 1 },
+    dracula: { n: '\ub4dc\ub77c\ud058\ub77c', bg: '#282a36', fg: '#d6d5e0', mut: '#7180b0', card: '#303241', bd: '#3c3f51', ac: '#bd93f9', dark: 1 },
+    solard: { n: '\uc194\ub77c\ub77c\uc774\uc988\ub4dc \ub2e4\ud06c', bg: '#002b36', fg: '#93a1a1', mut: '#5f7a80', card: '#073642', bd: '#0d4552', ac: '#2aa198', dark: 1 }
   };
+  // \ud14c\ub9c8 \uace0\ub974\uae30: mode d(\ub0ae) / n(\ubc24) / a(\uc790\ub3d9: \ud3f0 \ub2e4\ud06c\ubaa8\ub4dc \ub530\ub77c), \ub0ae\u00b7\ubc24 \ud14c\ub9c8\ub97c \ub530\ub85c \uae30\uc5b5
+  function sysDark() { try { return matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; } }
+  function themeKey() {
+    if (tmpTheme && THEMES[tmpTheme]) return tmpTheme;
+    var m = prefs.mode || 'a', dk = m === 'n' || (m === 'a' && sysDark());
+    var k = dk ? prefs.nightT : prefs.dayT;
+    return THEMES[k] && !!THEMES[k].dark === dk ? k : dk ? 'dark' : 'light';
+  }
+  var tmpTheme = null, themeSnap = null;
   var FONTS = {
     pretendard: { n: '\ud504\ub9ac\ud150\ub2e4\ub4dc', f: '"Pretendard Variable",Pretendard,-apple-system,sans-serif',
       css: 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css' },
@@ -553,8 +575,16 @@
     ['mw', '\ubcf8\ubb38 \ud3ed', 40, 400, 1000, function (v) { return v + 'px'; }]
   ];
   var PK = 'nvtrPrefs';
-  var DEF = { theme: 'auto', font: 'pretendard', fs: 18, lh: 1.8, ps: 0.9, mw: 680, pad: 24, ind: 0, auto: 1, pre: 1, ts: 0, v: 2 };
-  function fill(p) { p = p || {}; Object.keys(DEF).forEach(function (k) { if (p[k] == null) p[k] = DEF[k]; }); return p; }
+  var DEF = { theme: 'auto', mode: '', dayT: 'light', nightT: 'dark', pins: [], font: 'pretendard', fs: 18, lh: 1.8, ps: 0.9, mw: 680, pad: 24, ind: 0, auto: 1, pre: 1, ts: 0, v: 2 };
+  function fill(p) {
+    p = p || {}; Object.keys(DEF).forEach(function (k) { if (p[k] == null) p[k] = DEF[k]; });
+    if (!p.mode) { // \uc608\uc804 \uc124\uc815(\ud14c\ub9c8 \ud558\ub098)\uc744 \ub0ae/\ubc24 \ubc29\uc2dd\uc73c\ub85c \uc62e\uae40
+      var o = p.theme, T = THEMES[o];
+      if (!T) p.mode = 'a'; else if (T.dark) { p.mode = 'n'; p.nightT = o; } else { p.mode = 'd'; p.dayT = o; }
+    }
+    if (!Array.isArray(p.pins)) p.pins = [];
+    return p;
+  }
   var prefs = gget(PK, {}) || {};
   if (!prefs.v) { if (!prefs.font || prefs.font === 'sys') prefs.font = 'pretendard'; prefs.v = 2; } // \uace0\ub515(\ud504\ub9ac\ud150\ub2e4\ub4dc)\uc744 \uc0c8 \uae30\ubcf8\uc73c\ub85c
   prefs = fill(JSON.parse(JSON.stringify(prefs)));
@@ -671,8 +701,19 @@
     '.pn .x{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--mut)}',
     '.pn .lb{font-size:13px;color:var(--mut);margin:20px 0 10px;font-weight:600}',
     '.pn .chips{display:flex;flex-wrap:wrap;gap:10px}',
-    '.pn .sw{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}',
-    '.pn .sw.sel{box-shadow:0 0 0 3px var(--card),0 0 0 5px var(--ac)}',
+    '.thd{display:flex;align-items:center;gap:8px;margin:20px 0 10px}',
+    '.thd .lb{margin:0;flex:1}',
+    '.thd .undo{font-size:12.5px;color:var(--ac);min-height:32px;padding:0 6px;visibility:hidden}',
+    '.seg{display:flex;border:1px solid var(--bd);border-radius:999px;overflow:hidden}',
+    '.seg button{min-height:34px;padding:0 13px;font-size:13px;color:var(--mut)}',
+    '.seg button.on{background:color-mix(in srgb, var(--ac) 16%, var(--card));color:var(--fg);font-weight:600}',
+    '.swrow{display:flex;align-items:center;gap:12px;overflow-x:auto;margin:0 -22px;padding:6px 22px 8px;scrollbar-width:none}',
+    '.swrow::-webkit-scrollbar{display:none}',
+    '.tsw{flex:none;position:relative;width:44px;height:44px;border-radius:50%;border:1px solid;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center}',
+    '.tsw.sel{box-shadow:0 0 0 3px var(--card),0 0 0 5px var(--ac)}',
+    '.tsw.pin::after{content:"";position:absolute;top:-1px;right:-1px;width:9px;height:9px;border-radius:50%;background:var(--ac);border:2px solid var(--card)}',
+    '.swrow .sep2{flex:none;width:1px;height:28px;background:var(--bd)}',
+    '.swnm{font-size:12px;color:var(--mut);margin-top:2px}',
     '.pn .ch{min-height:46px;padding:0 16px;border-radius:14px;border:1px solid var(--bd);font-size:15px}',
     '.pn .ch.sel{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--ac);font-weight:700}',
     '.pn .stp{display:flex;align-items:center;justify-content:space-between;min-height:58px;border-bottom:1px solid color-mix(in srgb,var(--bd) 55%,transparent)}',
@@ -720,8 +761,8 @@
     '.hd.wk h3{flex:1;min-width:0;font-size:17px;line-height:1.35}',
     '.wide.danger{color:var(--mut)}',
     '.wide.danger.sure{background:var(--fg);color:var(--bg);border-color:var(--fg)}',
-    '.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -18px 14px;padding:2px 18px;scrollbar-width:none}',
-    '.chips::-webkit-scrollbar{display:none}',
+    '.tagbar{display:flex;gap:8px;overflow-x:auto;margin:0 -18px 14px;padding:2px 18px;scrollbar-width:none}',
+    '.tagbar::-webkit-scrollbar{display:none}',
     '.chip{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--bd);font-size:13.5px;color:var(--mut);background:transparent}',
     '.chip small{font-size:11.5px;opacity:.7}',
     '.chip.on{color:var(--fg);font-weight:600;border-color:color-mix(in srgb, var(--tc, var(--fg)) 60%, var(--bd));background:color-mix(in srgb, var(--tc, var(--fg)) 22%, var(--card))}',
@@ -806,7 +847,7 @@
   function showSheet() { app.classList.add('sheet'); pushLayer('sheet'); }
 
   function applyPrefs() {
-    var t = THEMES[prefs.theme] || (matchMedia('(prefers-color-scheme: dark)').matches ? THEMES.dark : THEMES.light);
+    var t = THEMES[themeKey()];
     var F = FONTS[prefs.font] || FONTS.pretendard; loadFont(prefs.font); loadFont('pretendard');
     var v = { '--bg': t.bg, '--fg': t.fg, '--mut': t.mut, '--card': t.card, '--bd': t.bd, '--ac': t.ac, '--font': F.f,
       '--ui': FONTS.pretendard.f, '--fs': prefs.fs + 'px', '--lh': prefs.lh, '--ps': prefs.ps + 'em', '--mw': prefs.mw + 'px',
@@ -823,14 +864,10 @@
   // ===================== \uc2dc\ud2b8: \ubcf4\uae30 \uc124\uc815 =====================
   function buildPanel() {
     var h = '<div class="grab"></div><div class="hd"><h3>\ubcf4\uae30 \uc124\uc815</h3><button class="x" data-act="close" aria-label="\ub2eb\uae30">' + I.x + '</button></div>';
-    h += '<div class="lb">\ud14c\ub9c8</div><div class="chips">';
-    Object.keys(THEMES).forEach(function (k) {
-      var T = THEMES[k];
-      var st = T ? 'background:' + T.bg + ';color:' + T.fg + ';border:1px solid ' + T.bd
-        : 'background:linear-gradient(135deg,#fbfbfa 50%,#151618 50%);color:#888;border:1px solid #999';
-      h += '<button class="sw" data-act="theme" data-v="' + k + '" style="' + st + '">' + (T ? T.n : '\uc790\ub3d9') + '</button>';
-    });
-    h += '</div><div class="lb">\uae00\uaf34</div><div class="chips">';
+    h += '<div class="thd"><span class="lb">\ud14c\ub9c8</span><button class="undo" data-act="themeUndo">\ub418\ub3cc\ub9ac\uae30</button><div class="seg">' +
+      '<button data-act="tmode" data-v="d">\ub0ae</button><button data-act="tmode" data-v="n">\ubc24</button><button data-act="tmode" data-v="a">\uc790\ub3d9</button></div></div>' +
+      '<div class="swrow"></div><div class="swnm"></div>';
+    h += '<div class="lb">\uae00\uaf34</div><div class="chips">';
     Object.keys(FONTS).forEach(function (k) {
       loadFont(k);
       h += '<button class="ch" data-act="font" data-v="' + k + '" style="font-family:' + FONTS[k].f.replace(/"/g, '&quot;') + '">' + FONTS[k].n + '</button>';
@@ -849,16 +886,36 @@
       '<button class="wide" data-act="api">\ubc88\uc5ed \uc124\uc815 (\ud0a4 \u00b7 \ubaa8\ub378 \u00b7 \uc6a9\uc5b4\uc9d1)</button>';
     pn.innerHTML = h;
   }
+  function themeList(dk) {
+    var ks = Object.keys(THEMES).filter(function (k) { return !!THEMES[k].dark === dk; });
+    var pins = prefs.pins || [];
+    return ks.filter(function (k) { return pins.indexOf(k) >= 0; }).concat(ks.filter(function (k) { return pins.indexOf(k) < 0; }));
+  }
+  function swHtml(k, sel) {
+    var T = THEMES[k];
+    return '<button class="tsw' + (sel ? ' sel' : '') + ((prefs.pins || []).indexOf(k) >= 0 ? ' pin' : '') + '" data-act="theme" data-v="' + k + '" aria-label="' + T.n + '" style="background:' + T.bg + ';color:' + T.fg + ';border-color:' + T.bd + '">\uac00</button>';
+  }
+  function syncThemeRow() {
+    var row = pn.querySelector('.swrow'); if (!row) return;
+    var m = prefs.mode || 'a', cur = themeKey(), h = '';
+    if (m === 'a') h = themeList(false).map(function (k) { return swHtml(k, k === prefs.dayT || k === cur); }).join('') + '<i class="sep2"></i>' + themeList(true).map(function (k) { return swHtml(k, k === prefs.nightT || k === cur); }).join('');
+    else h = themeList(m === 'n').map(function (k) { return swHtml(k, k === cur); }).join('');
+    var sl = row.scrollLeft; row.innerHTML = h; row.scrollLeft = sl;
+    [].forEach.call(pn.querySelectorAll('[data-act=tmode]'), function (b) { b.classList.toggle('on', b.dataset.v === m); });
+    var nm = pn.querySelector('.swnm'), D = THEMES[prefs.dayT] || THEMES.light, N = THEMES[prefs.nightT] || THEMES.dark;
+    nm.textContent = (m === 'a' ? '\ub0ae ' + D.n + ' \u00b7 \ubc24 ' + N.n : THEMES[cur].n) + ' \u00b7 \uae38\uac8c \ub20c\ub7ec \uace0\uc815';
+    var ub = pn.querySelector('.undo'); if (ub) ub.style.visibility = themeSnap && JSON.stringify(themeSnap) !== JSON.stringify([prefs.mode, prefs.dayT, prefs.nightT]) ? 'visible' : 'hidden';
+  }
   function syncPanel() {
-    [].forEach.call(pn.querySelectorAll('[data-act=theme]'), function (b) { b.classList.toggle('sel', b.dataset.v === prefs.theme); });
+    syncThemeRow();
     [].forEach.call(pn.querySelectorAll('[data-act=font]'), function (b) { b.classList.toggle('sel', b.dataset.v === prefs.font); });
     [].forEach.call(pn.querySelectorAll('[data-act=ind]'), function (b) { b.classList.toggle('sel', +b.dataset.v === +prefs.ind); });
     pn.querySelector('[data-act=autoNext]').classList.toggle('sel', !!prefs.auto);
     [].forEach.call(pn.querySelectorAll('[data-act=pre]'), function (b) { b.classList.toggle('sel', +b.dataset.v === +prefs.pre); });
     STEPS.forEach(function (s) { pn.querySelector('b[data-k=' + s[0] + ']').textContent = s[5](prefs[s[0]]); });
   }
-  function openSheet() { buildPanel(); pn.dataset.mode = 'set'; syncPanel(); pn.scrollTop = 0; showSheet(); }
-  function closeSheet() { dropLayer('sheet'); }
+  function openSheet() { buildPanel(); pn.dataset.mode = 'set'; themeSnap = [prefs.mode, prefs.dayT, prefs.nightT]; syncPanel(); pn.scrollTop = 0; showSheet(); }
+  function closeSheet() { dropLayer('sheet'); if (tmpTheme) { tmpTheme = null; applyPrefs(); } }
 
   // ===================== \uc2dc\ud2b8: \ub9c1\ud06c \uace0\ub974\uae30 =====================
   var pickItem = null;
@@ -1382,7 +1439,7 @@
     var tl = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a] || a.localeCompare(b); });
     if (libTag && !cnt[libTag]) libTag = null;
     var h = '';
-    if (tl.length) h += '<div class="chips"><button class="chip' + (libTag ? '' : ' on') + '" data-act="libTag" data-tag="">\uc804\uccb4</button>' +
+    if (tl.length) h += '<div class="tagbar"><button class="chip' + (libTag ? '' : ' on') + '" data-act="libTag" data-tag="">\uc804\uccb4</button>' +
       tl.map(function (t) { var c = COV_C[coverHash('tag:' + t) % COV_C.length]; return '<button class="chip' + (libTag === t ? ' on' : '') + '" style="--tc:' + c + '" data-act="libTag" data-tag="' + esc(t) + '">' + esc(t) + '<small>' + cnt[t] + '</small></button>'; }).join('') + '</div>';
     if (libTag) {
       h += '<div class="grid">' + ws.filter(function (w) { return (w.tags || []).indexOf(libTag) >= 0; }).map(tileHtml).join('') + '</div>';
@@ -1610,7 +1667,16 @@
       if (!r && name === 'tocLastTr') { toast('\uc774 \uc791\ud488\uc740 \ubc88\uc5ed\ud574 \ub454 \ud654\uac00 \uc5c6\uc5b4\uc694'); return; }
       if (r) pgB.scrollTo({ top: r.offsetTop - pgB.clientHeight / 2, behavior: 'smooth' }); return;
     }
-    if (name === 'theme') { prefs.theme = t.dataset.v; savePrefs(); applyPrefs(); return; }
+    if (name === 'theme') {
+      var tk = t.dataset.v, TT = THEMES[tk]; if (!TT) return;
+      if (TT.dark) prefs.nightT = tk; else prefs.dayT = tk;
+      var mm = prefs.mode || 'a';
+      // \uc790\ub3d9\uc5d0\uc11c \uc9c0\uae08 \uc2dc\uac04\ub300\uac00 \uc544\ub2cc \ucabd\uc744 \uace0\ub974\uba74: \ucc3d\uc774 \uc5f4\ub9b0 \ub3d9\uc548\ub9cc \ubbf8\ub9ac \ubcf4\uc5ec \uc90c
+      tmpTheme = mm === 'a' && !!TT.dark !== sysDark() ? tk : null;
+      savePrefs(); applyPrefs(); syncThemeRow(); return;
+    }
+    if (name === 'tmode') { prefs.mode = t.dataset.v; tmpTheme = null; savePrefs(); applyPrefs(); syncThemeRow(); return; }
+    if (name === 'themeUndo') { if (themeSnap) { prefs.mode = themeSnap[0]; prefs.dayT = themeSnap[1]; prefs.nightT = themeSnap[2]; tmpTheme = null; savePrefs(); applyPrefs(); syncThemeRow(); toast('\ucc98\uc74c \ud14c\ub9c8\ub85c \ub418\ub3cc\ub838\uc5b4\uc694'); } return; }
     if (name === 'font') { prefs.font = t.dataset.v; savePrefs(); applyPrefs(); return; }
     if (name === 'pre') { prefs.pre = +t.dataset.v; savePrefs(); applyPrefs(); toast(['\ub2e4\uc74c \ud654\ub97c \ubbf8\ub9ac \ubc88\uc5ed\ud558\uc9c0 \uc54a\uc544\uc694', '\ub2e4\uc74c \ud654 \uc55e\ubd80\ubd84\ub9cc \ubbf8\ub9ac \ubc88\uc5ed\ud574\uc694', '\ub2e4\uc74c \ud654 \uc804\uccb4\ub97c \ubbf8\ub9ac \ubc88\uc5ed\ud574\uc694'][prefs.pre]); return; }
     if (name === 'ind') { prefs.ind = +t.dataset.v; savePrefs(); applyPrefs(); return; }
@@ -1759,7 +1825,9 @@
     e.stopImmediatePropagation();
     down = { x: e.clientX, y: e.clientY, t: Date.now() }; lpFired = false; clearTimeout(lpT);
     var p = paraOf(e), wk = pageMode === 'lib' && app.classList.contains('page') && !app.classList.contains('sheet') ? pathOf(e).filter(function (n) { return n.classList && (n.classList.contains('tile') || n.classList.contains('cont')) && n.dataset.id; })[0] : null;
-    if (wk) { wk.classList.add('press'); lpT = setTimeout(function () { lpFired = true; wk.classList.remove('press'); buzz(); openWork(wk.dataset.id); }, 480); }
+    var swb = app.classList.contains('sheet') ? pathOf(e).filter(function (n) { return n.classList && n.classList.contains('tsw'); })[0] : null;
+    if (swb) { lpT = setTimeout(function () { lpFired = true; buzz(); var k = swb.dataset.v, P = prefs.pins || (prefs.pins = []), at = P.indexOf(k); if (at >= 0) P.splice(at, 1); else P.unshift(k); savePrefs(); syncThemeRow(); toast(at >= 0 ? THEMES[k].n + ' \uace0\uc815\uc744 \ud480\uc5c8\uc5b4\uc694' : THEMES[k].n + '\uc744(\ub97c) \ub9e8 \uc55e\uc5d0 \uace0\uc815\ud588\uc5b4\uc694'); }, 480); }
+    else if (wk) { wk.classList.add('press'); lpT = setTimeout(function () { lpFired = true; wk.classList.remove('press'); buzz(); openWork(wk.dataset.id); }, 480); }
     else if (p && !app.classList.contains('sheet')) lpT = setTimeout(function () { lpFired = true; buzz(); openPara(p); }, 480);
   }, true);
   window.addEventListener('pointermove', function (e) {
@@ -1808,7 +1876,7 @@
     });
   });
   applyPrefs();
-  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if (prefs.theme === 'auto') applyPrefs(); }); } catch (e) { }
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if ((prefs.mode || 'a') === 'a') applyPrefs(); }); } catch (e) { }
   show(first).then(function (it) { if (it && it.done) setTimeout(function () { restorePos(it); }, 50); else posReady = true; });
   libAll(); if (gget('libRestore', 0)) setTimeout(function () { restoreLib(false); }, 3000);
   if (!gget('hintUI', 0)) { gset('hintUI', 1); setTimeout(function () { toast('\ud654\uba74\uc744 \ud0ed\ud558\uba74 \uba54\ub274\uac00, \ubb38\ub2e8\uc744 \uae38\uac8c \ub204\ub974\uba74 \ub2e4\uc2dc \ubc88\uc5ed\uc774 \ub098\uc640\uc694'); }, 1200); }
