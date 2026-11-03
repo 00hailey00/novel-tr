@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.7.1
+// @version      1.7.2
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -160,11 +160,13 @@
     return t;
   }
   // \uc18c\uc81c\ubaa9\uc744 h1\uc774 \uc544\ub2c8\ub77c \ubcf8\ubb38 \uccab \uc904\uc5d0 \uc801\ub294 \uc0ac\uc774\ud2b8(oop.tw \ub4f1): \uc81c\ubaa9\uc774 \ubc88\ud638\ubfd0\uc774\uace0 \uccab \uc904\uc774 \uc9e7\uace0 \ubb38\uc7a5\ubd80\ud638\ub85c \uc548 \ub05d\ub098\uba74 \uc18c\uc81c\ubaa9\uc73c\ub85c \uc62c\ub9bc
-  // \uadf8\ub7f0 \uc0ac\uc774\ud2b8\ub85c \ud55c \ubc88 \ud655\uc778\ub418\uba74(subHost) '\u2026\uac74\uac00?'\ucc98\ub7fc \ubb3c\uc74c\ud45c\u00b7\ub290\ub08c\ud45c\ub85c \ub05d\ub098\ub294 \uc18c\uc81c\ubaa9\ub3c4 \ubc1b\uc544\ub4e4\uc784
+  // \uadf8\ub7f0 \uc0ac\uc774\ud2b8\ub85c \ud55c \ubc88 \ud655\uc778\ub418\uba74(subHost) '\u2026\uac74\uac00?', '\ub4e4\uc744\uac8c\uc694\u2026'\ucc98\ub7fc \ub05d\ub098\ub294 \uc9e7\uc740 \uccab \uc904\ub3c4 \uc18c\uc81c\ubaa9\uc73c\ub85c \ubc1b\uc544\ub4e4\uc784
   function subLine(s, loose) {
     s = String(s || '').trim();
-    var end = loose ? /[\u3002.\u2026\u201d\u300d\u300f"'\u2019~\uff5e)\uff09\]\u3011\u3015:\uff1a\uff0c,\u3001]$/ : /[\u3002.\uff01!\uff1f?\u2026\u201d\u300d\u300f"'\u2019~\uff5e)\uff09\]\u3011\u3015:\uff1a\uff0c,\u3001]$/;
-    return s.length >= (/[\u4e00-\u9fff]/.test(s) ? 2 : 4) && s.length <= (loose ? 32 : 40) && !/^[\u201c\u300c\u300e"'\u2018(\uff08\[\u3010\u3014\u2014\-]/.test(s) && !end.test(s) && !/https?:|www\./i.test(s);
+    if (s.length < (/[\u4e00-\u9fff]/.test(s) ? 2 : 4) || /https?:|www\./i.test(s)) return false;
+    // \ud655\uc778\ub41c \uc0ac\uc774\ud2b8: \uccab \uc904\uc774 \uc9e7\uc73c\uba74 '\u2026\u2026'\u00b7'?'\u00b7\ub530\uc634\ud45c\ub85c \ub05d\ub098\ub3c4 \uc18c\uc81c\ubaa9 (\ub9c8\uce68\ud45c\u00b7\uc27c\ud45c\ub85c \ub05d\ub098\ub294 \uac74 \ubb38\uc7a5\uc73c\ub85c \ubd04)
+    if (loose) return s.length <= 32 && !/[\u3002.\uff0c,\u3001:\uff1a]$/.test(s.replace(/[\u201d\u300d\u300f"'\u2019)\uff09]+$/, ''));
+    return s.length <= 40 && !/^[\u201c\u300c\u300e"'\u2018(\uff08\[\u3010\u3014\u2014\-]/.test(s) && !/[\u3002.\uff01!\uff1f?\u2026\u201d\u300d\u300f"'\u2019~\uff5e)\uff09\]\u3011\u3015:\uff1a\uff0c,\u3001]$/.test(s);
   }
   function subHost(u, set) {
     var H = gget('subHost', {}) || {}, h = hostOf(u);
