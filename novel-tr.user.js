@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.5.8
+// @version      1.5.9
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -1692,16 +1692,22 @@
     var have = {}; list.forEach(function (c) { have[ckey(c.u)] = 1; });
     // '\ucc98\uc74c\ubd80\ud130 \uc77d\uae30' \uac19\uc740 \ub9c1\ud06c\ub294 1\ud654\uc640 \uacb9\uce58\ub2c8 \ube8c
     if (list.length > 3) list = list.filter(function (c) { return !/^(\u958b\u59cb|\u5f00\u59cb|\u5f9e\u982d|\u4ece\u5934|\u7acb\u5373)\s*(\u95b1\u8b80|\u9605\u8bfb)$|^(\u5f00\u59cb\u9605\u8bfb|\u958b\u59cb\u95b1\u8b80)/.test(c.t.trim()); });
-    var trT = {}; list.forEach(function (c) { var tr0 = cacheHas(c.u); if (tr0 && tr0.t) trT[tr0.t] = 1; });
-    var I0 = cIndex(), extra = Object.keys(I0).filter(function (k) { return I0[k].w === it.ch.id && !have[k] && !trT[I0[k].t]; }); // \uac19\uc740 \ud654\uc758 2\ucabd\ucc98\ub7fc \uc81c\ubaa9\uc774 \uacb9\uce58\ub294 \uac74 \ud55c \ubc88\ub9cc
-    if (!have[ckey(it.ch.url)] && extra.indexOf(ckey(it.ch.url)) < 0) extra.push(ckey(it.ch.url));
+    // \ubaa9\ucc28\uc5d0 \uc774\ubbf8 \uc788\ub294 \ud654(\uc81c\ubaa9 \ub610\ub294 \ud654 \ubc88\ud638\uac00 \uac19\uc740 \uac83)\ub294 \ubc88\uc5ed \uae30\ub85d\uc5d0\uc11c \ub610 \ub07c\uc6cc \ub123\uc9c0 \uc54a\uc74c \u2014 \ub098\ub25c \ud654\uc758 2\ucabd, '009'\uc640 '\uc81c9\ud654' \uac19\uc740 \uacbd\uc6b0
+    var trT = {}, nums = {};
+    list.forEach(function (c) { var tr0 = cacheHas(c.u), n0 = chNum(c.t); if (n0 != null && n0 >= 1) nums[n0] = 1; if (tr0 && tr0.t) { trT[tr0.t] = 1; var n1 = chNum(tr0.t); if (n1 != null && n1 >= 1) nums[n1] = 1; } });
+    var I0 = cIndex(), extra = Object.keys(I0).filter(function (k) {
+      if (I0[k].w !== it.ch.id || have[k] || trT[I0[k].t]) return false;
+      var n2 = chNum(I0[k].t || ''); return !(n2 != null && nums[n2]);
+    });
+    var curHit = 0, curN = chNum(it.title || ''), curAlias = !have[ckey(it.ch.url)] && curN != null && nums[curN]; // \uc9c0\uae08 \ud654\uac00 \ubaa9\ucc28\uc5d0 \uc5c6\ub294 2\ucabd\uc774\uba74 \uac19\uc740 \ubc88\ud638 \uc904\uc744 '\uc77d\ub294 \uc911'\uc73c\ub85c
+    if (!have[ckey(it.ch.url)] && !curAlias && extra.indexOf(ckey(it.ch.url)) < 0) extra.push(ckey(it.ch.url));
     if (extra.length) list = sortToc(list.concat(extra.map(function (k) { return { u: k, t: (I0[k] && I0[k].t) || it.title || k, extra: 1 }; })));
     // \ud654 \ubc88\ud638\uac00 \ud06c\uac8c \uac74\ub108\ub6f0\ub294 \uacf3: \uc0ac\uc774\ud2b8 \ubaa9\ucc28\uac00 \uc77c\ubd80\ub9cc \ubcf4\uc5ec \uc8fc\ub294 \uacbd\uc6b0 \uc54c\ub824 \uc90c
     var gap = null, prevN = null;
     list.forEach(function (c) { var n = chNum(c.t); if (n != null && n >= 1) { if (prevN != null && n - prevN > 5 && !gap) gap = [prevN + 1, n - 1]; prevN = n; } });
     var read = (libAll()[it.ch.id] || {}).read || {}, cur = it.ch.url.replace(/#.*$/, ''), readN = 0, trN = 0;
     var rows = list.map(function (c, i) {
-      var tr = cacheHas(c.u), isRead = read[ckey(c.u)] || read[c.u], isCur = ckey(c.u) === ckey(cur);
+      var tr = cacheHas(c.u), isRead = read[ckey(c.u)] || read[c.u], isCur = ckey(c.u) === ckey(cur) || (curAlias && !curHit && (chNum(c.t) === curN || chNum((cacheHas(c.u) || {}).t || '') === curN) && (curHit = 1));
       if (isRead) readN++; if (tr) trN++;
       return '<button class="row' + (isRead ? ' read' : '') + (isCur ? ' cur' : '') + (tr ? ' tr' : '') + '" data-act="open" data-u="' + esc(c.u) + '"><span class="rt">' +
         esc(tr ? tr.t : c.t) + (tr && tr.t !== c.t ? '<small>' + esc(c.t) + '</small>' : '') + '</span>' +
