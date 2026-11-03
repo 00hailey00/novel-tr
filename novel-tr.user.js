@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.7.5
+// @version      1.7.6
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -850,10 +850,8 @@
     '.grp p.tr.live{animation:none}',
     '.app.dlg1 .dq{color:color-mix(in srgb,var(--ac) 72%,var(--fg))}',
     '.app.dlg1 .dq.th{color:color-mix(in srgb,var(--ac) 45%,var(--fg));font-style:italic}',
-    '.app.dlg2 .dq{--hl:color-mix(in srgb,var(--ac) 13%,transparent);background:linear-gradient(transparent 12%,var(--hl) 12%,var(--hl) 94%,transparent 94%);border-radius:3px;padding:0 2px;margin:0 -2px;-webkit-box-decoration-break:clone;box-decoration-break:clone}',
-    '.app.dk.dlg2 .dq{--hl:color-mix(in srgb,var(--ac) 18%,transparent)}',
-    '.app.dlg2 .dq.th{--hl:color-mix(in srgb,var(--mut) 13%,transparent)}',
-    '.app.dk.dlg2 .dq.th{--hl:color-mix(in srgb,var(--mut) 18%,transparent)}',
+    '.app.dlg2 .dq{background:linear-gradient(transparent 10%,var(--hl) 10%,var(--hl) 95%,transparent 95%);border-radius:3px;padding:0 2px;margin:0 -2px;-webkit-box-decoration-break:clone;box-decoration-break:clone}',
+    '.app.dlg2 .dq.th{background:linear-gradient(transparent 10%,var(--hl2) 10%,var(--hl2) 95%,transparent 95%)}',
     '.app.dk .wrap{font-weight:370;-webkit-font-smoothing:antialiased}',
     '.app.dk .cht{font-weight:600}',
     '.grp p.hold{background:color-mix(in srgb,var(--ac) 12%,transparent)}',
@@ -1091,10 +1089,30 @@
   function setUI(on) { if (on) { app.classList.add('ui'); pushLayer('ui'); } else dropLayer('ui'); }
   function showSheet() { pn.classList.remove('full'); pn.style.transform = ''; app.classList.add('sheet'); pushLayer('sheet'); }
 
+  // \ub300\uc0ac \ud615\uad11\ud39c \uc0c9: \ud14c\ub9c8 \uac15\uc870\uc0c9\uc758 \uc0c9\uc0c1\uc73c\ub85c, \ubc1d\uc740 \ud14c\ub9c8\ub294 \uc5f0\ud558\uace0 \uc120\uba85\ud558\uac8c, \uc5b4\ub450\uc6b4 \ud14c\ub9c8\ub294 \uc740\uc740\ud558\uac8c.
+  // \ud615\uad11\ud39c \uc704 \uae00\uc790\uac00 \ubc14\ud0d5 \uc704 \uae00\uc790\ub9cc\ud07c(80% \uc774\uc0c1) \ub610\ub837\ud558\ub3c4\ub85d \uc9c4\ud558\uae30\ub97c \ud14c\ub9c8\ub9c8\ub2e4 \uacc4\uc0b0
+  function hx(h) { h = h.replace('#', ''); return [0, 2, 4].map(function (i) { return parseInt(h.substr(i, 2), 16) / 255; }); }
+  function lumi(c) { return c.map(function (v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce(function (s, v, i) { return s + v * [0.2126, 0.7152, 0.0722][i]; }, 0); }
+  function ctr(a, b) { var x = lumi(a), y = lumi(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  function toHsl(c) {
+    var r = c[0], g = c[1], b = c[2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, h = 0, s = 0, d = mx - mn;
+    if (d) { s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; }
+    return [h, s, l];
+  }
+  function fromHsl(h, s, l) {
+    function f(n) { var k = (n + h * 12) % 12, a = s * Math.min(l, 1 - l); return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); }
+    return [f(0), f(8), f(4)];
+  }
+  function hlColor(t, base) {
+    var bg = hx(t.bg), fg = hx(t.fg), hue = toHsl(hx(base))[0], L0 = toHsl(bg)[2], need = Math.max(4.5, ctr(fg, bg) * 0.8), c = null;
+    var S = t.dark ? 0.38 : 0.55, cap = t.dark ? 0.11 : 0.13;
+    for (var d = cap; d >= 0.03; d -= 0.005) { c = fromHsl(hue, S, Math.max(0, Math.min(1, t.dark ? L0 + d : L0 - d))); if (ctr(fg, c) >= need) break; }
+    return 'rgb(' + c.map(function (v) { return Math.round(v * 255); }).join(',') + ')';
+  }
   function applyPrefs() {
     var t = THEMES[themeKey()];
     var F = (prefs.font === 'custom' && customFont()) || FONTS[prefs.font] || FONTS.pretendard; loadFont(prefs.font); loadFont('pretendard');
-    var v = { '--bg': t.bg, '--fg': t.fg, '--mut': t.mut, '--card': t.card, '--bd': t.bd, '--ac': t.ac, '--font': F.f,
+    var v = { '--bg': t.bg, '--fg': t.fg, '--mut': t.mut, '--card': t.card, '--bd': t.bd, '--ac': t.ac, '--hl': hlColor(t, t.ac), '--hl2': hlColor(t, t.mut), '--font': F.f,
       '--ui': FONTS.pretendard.f, '--fs': prefs.fs + 'px', '--lh': prefs.lh, '--ps': prefs.ps + 'em', '--mw': prefs.mw + 'px',
       '--pad': prefs.pad + 'px', '--ind': prefs.ind ? '1em' : '0', '--ta': prefs.just ? 'justify' : 'left', '--wb': prefs.just ? 'normal' : 'keep-all' }; // \uc591\ucabd \uc815\ub82c\uc740 \uae00\uc790 \ub2e8\uc704 \uc904\ubc14\uafc8\uc774\ub77c\uc57c \ub744\uc5b4\uc4f0\uae30\uac00 \ubc8c\uc5b4\uc9c0\uc9c0 \uc54a\uc74c
     Object.keys(v).forEach(function (k) { app.style.setProperty(k, v[k]); });
