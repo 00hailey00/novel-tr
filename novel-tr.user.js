@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.5.3
+// @version      1.5.4
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -661,7 +661,7 @@
     // \uc2dc\ud2b8
     '.scrim{position:fixed;inset:0;z-index:5;background:rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .25s}',
     '.app.sheet .scrim{opacity:1;pointer-events:auto}',
-    '.pn{position:fixed;left:0;right:0;bottom:0;z-index:6;max-height:86vh;overflow-y:auto;overscroll-behavior:contain;background:var(--card);border-radius:24px 24px 0 0;padding:8px 22px calc(26px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(0,0,0,.25);transform:translateY(105%);transition:transform .34s cubic-bezier(.2,.8,.2,1);font-family:var(--ui);font-size:15px}',
+    '.pn{position:fixed;left:0;right:0;bottom:0;z-index:6;max-height:86vh;overflow-y:auto;overscroll-behavior:contain;background:var(--card);border-radius:24px 24px 0 0;padding:8px 22px calc(26px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(0,0,0,.25);transform:translateY(105%);transition:transform .34s cubic-bezier(.2,.8,.2,1),bottom .2s ease;font-family:var(--ui);font-size:15px}',
     '.app.sheet .pn{transform:none}',
     '.pn .grab{width:42px;height:5px;border-radius:3px;background:var(--bd);margin:6px auto 14px}',
     '.pn .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}',
@@ -1726,6 +1726,19 @@
   }
   function onInput(e) { return pathOf(e).some(function (n) { return n.tagName === 'INPUT'; }); }
   var down = null, lastPtr = 0, lpT = null, lpFired = false;
+  // \uc790\ud310\uc774 \uc62c\ub77c\uc624\uba74 \uc544\ub798 \uc2dc\ud2b8\ub97c \uc790\ud310 \uc704\ub85c \uc62c\ub9bc (\ud30c\uc774\uc5b4\ud3ed\uc2a4\ub294 \uc790\ud310\uc774 \ud654\uba74\uc744 \ub36e\uae30\ub9cc \ud558\uace0 \ud654\uba74 \ud06c\uae30\ub97c \uc548 \uc904\uc5ec\uc11c)
+  function fitKb() {
+    var vv = window.visualViewport; if (!vv || !pn) return;
+    var kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    if (kb > 60) { pn.style.bottom = kb + 'px'; pn.style.maxHeight = Math.max(200, vv.height - 16) + 'px'; pn.style.paddingBottom = '16px'; }
+    else { pn.style.bottom = ''; pn.style.maxHeight = ''; pn.style.paddingBottom = ''; }
+  }
+  if (window.visualViewport) { window.visualViewport.addEventListener('resize', fitKb); window.visualViewport.addEventListener('scroll', fitKb); }
+  root.addEventListener('focusin', function (e) {
+    var tg = e.composedPath && e.composedPath()[0];
+    if (tg && tg.tagName === 'INPUT' && pn.contains(tg)) [150, 400, 800].forEach(function (ms) { setTimeout(function () { fitKb(); try { tg.scrollIntoView({ block: 'nearest' }); } catch (x) { } }, ms); });
+  }, true);
+  root.addEventListener('focusout', function () { setTimeout(fitKb, 300); }, true);
   root.addEventListener('keydown', function (e) { // \ud0dc\uadf8 \uc785\ub825: \uc5d4\ud130\ub85c \ucd94\uac00
     var tg = e.composedPath && e.composedPath()[0];
     if (e.key === 'Enter' && tg && tg.classList && tg.classList.contains('tagin') && workId0) { e.preventDefault(); addTag(workId0, tg); }
