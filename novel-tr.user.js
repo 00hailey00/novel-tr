@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.6.0
+// @version      1.6.1
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -756,12 +756,12 @@
     // \uc2dc\ud2b8
     '.scrim{position:fixed;inset:0;z-index:5;background:rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .25s}',
     '.app.sheet .scrim{opacity:1;pointer-events:auto}',
-    '.pn{position:fixed;left:0;right:0;bottom:0;z-index:6;max-height:86vh;overflow-y:auto;overscroll-behavior:contain;background:var(--card);border-radius:24px 24px 0 0;padding:8px 22px calc(26px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(0,0,0,.25);transform:translateY(105%);transition:transform .34s cubic-bezier(.2,.8,.2,1),bottom .2s ease;font-family:var(--ui);font-size:15px}',
+    '.pn{position:fixed;left:0;right:0;bottom:0;z-index:6;max-height:86vh;max-height:86dvh;overflow-y:auto;overscroll-behavior:contain;background:var(--card);border-radius:24px 24px 0 0;padding:8px 22px calc(26px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(0,0,0,.25);transform:translateY(105%);transition:transform .34s cubic-bezier(.2,.8,.2,1),bottom .2s ease;font-family:var(--ui);font-size:15px}',
     '.app.sheet .pn{transform:none}',
     '.pn .grab{position:relative;width:42px;height:5px;border-radius:3px;background:var(--bd);margin:6px auto 14px;touch-action:none}',
     '.pn .grab::before{content:"";position:absolute;left:-60px;right:-60px;top:-16px;bottom:-14px}', // \uc190\uac00\ub77d\uc73c\ub85c \uc7a1\uae30 \uc27d\uac8c \ub113\uc740 \uc601\uc5ed
     '.pn .hd,.pn .grab{touch-action:none;-webkit-user-select:none;user-select:none}',
-    '.pn.full{max-height:calc(100vh - 12px - env(safe-area-inset-top))}',
+    '.pn.full{max-height:calc(100vh - 12px);max-height:calc(100dvh - 12px - env(safe-area-inset-top))}', // dvh: \uc8fc\uc18c\ucc3d\uc774 \ubcf4\uc77c \ub54c\uc758 \uc2e4\uc81c \ud654\uba74 \ub192\uc774
     '.pn.drag{transition:none}',
     '.pn .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}',
     '.pn h3{font-size:19px;font-weight:700}',
@@ -1975,12 +1975,13 @@
     if (sdrag) {
       e.stopImmediatePropagation(); var dy = e.clientY - sdrag.y; sdrag.dy = dy;
       if (dy >= 0) { pn.style.transform = 'translateY(' + dy + 'px)'; pn.style.maxHeight = ''; }
-      else { pn.style.transform = ''; pn.style.maxHeight = Math.min(window.innerHeight - 12, sdrag.h - dy) + 'px'; }
+      else { pn.style.transform = ''; pn.style.maxHeight = Math.min(viewH() - 12, sdrag.h - dy) + 'px'; }
       return;
     }
     if (!down || !inUI(e)) return;
     if (Math.abs(e.clientX - down.x) > 10 || Math.abs(e.clientY - down.y) > 10) { clearTimeout(lpT); unpress(); }
   }, true);
+  function viewH() { var vv = window.visualViewport; return Math.round(vv ? vv.height : window.innerHeight); } // \uc8fc\uc18c\ucc3d\u00b7\uc790\ud310\uc744 \ube80 \uc2e4\uc81c\ub85c \ubcf4\uc774\ub294 \ub192\uc774
   function endDrag(cancel) {
     var d = sdrag; sdrag = null; if (!d) return;
     pn.classList.remove('drag'); pn.style.transform = ''; pn.style.maxHeight = '';
