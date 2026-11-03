@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.6.7
+// @version      1.6.8
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -1736,15 +1736,14 @@
     async function one(u) {
       try {
         var d = await getDoc(u), t = titleOf(d), sub = stripNum(t);
-        if (!sub) { // \uc81c\ubaa9 \uce78 \ub9d0\uace0 \ub2e4\ub978 \uba38\ub9ac\uae00\uc5d0 \uc788\ub294\uc9c0
-          var h = [].map.call(d.querySelectorAll('h2,h3,.subtitle,.chapter-title,.chaptername'), function (x) { return x.textContent.trim(); }).filter(function (x) { return x && x.length < 50 && hanLen(x) > 1; })[0];
-          if (h) { sub = stripNum(h); t = h; }
-        }
         if (sub && hanLen(sub) > 0) found.push({ u: u, t: t.replace(/\s+/g, ' ').trim() });
       } catch (e) { }
       done++; if (done % 5 === 0) toast('\uc6d0\ubcf8 \ud398\uc774\uc9c0\uc5d0\uc11c \uc18c\uc81c\ubaa9\uc744 \ucc3e\ub294 \uc911 (' + done + '/' + list.length + ')');
     }
     for (var i = 0; i < list.length; i += 4) await Promise.all(list.slice(i, i + 4).map(one));
+    // \uc5ec\ub7ec \ud654\uc5d0 \ub611\uac19\uc774 \ubd99\uc740 \uae00\uc740 \uc18c\uc81c\ubaa9\uc774 \uc544\ub2c8\ub77c \uc0ac\uc774\ud2b8 \ubb38\uad6c(\uc791\ud488\uba85\u00b7\uba54\ub274 \ub4f1)\ub77c \ubc84\ub9bc
+    var cnt = {}; found.forEach(function (f) { var k = stripNum(f.t); cnt[k] = (cnt[k] || 0) + 1; });
+    found = found.filter(function (f) { return cnt[stripNum(f.t)] === 1 || found.length === 1; });
     if (!found.length) { toast('\uc6d0\ubcf8 \ud398\uc774\uc9c0\uc5d0\ub3c4 \uc18c\uc81c\ubaa9\uc774 \uc5c6\uc5b4\uc694 (' + list.length + '\uac1c \ud655\uc778)'); return; }
     toast('\uc18c\uc81c\ubaa9 ' + found.length + '\uac1c\ub97c \ubc88\uc5ed\ud558\ub294 \uc911');
     try {
@@ -1899,6 +1898,13 @@
     list.forEach(function (c) { var n = chNum(c.t); if (n != null && n >= 1) { if (prevN != null && n - prevN > 5 && !gap) gap = [prevN + 1, n - 1]; prevN = n; } });
     var read = (libAll()[it.ch.id] || {}).read || {}, cur = it.ch.url.replace(/#.*$/, ''), readN = 0, trN = 0;
     var noSub = [];
+    // \uc5ec\ub7ec \ud654\uc5d0 \ub611\uac19\uc740 \uc18c\uc81c\ubaa9\uc774 \ubd99\uc5b4 \uc788\uc73c\uba74(\uc608\uc804 \ubc84\uc804\uc774 \uc0ac\uc774\ud2b8 \ubb38\uad6c\ub97c \uc18c\uc81c\ubaa9\uc73c\ub85c \uc798\ubabb \ub123\uc740 \uacbd\uc6b0) \uc9c0\uc6b0\uace0 \ubc88\ud638\ub9cc \ub0a8\uae40
+    var subCnt = {};
+    list.forEach(function (c) { var tr0 = cacheHas(c.u), st = tr0 ? stripNum(tr0.t) : ''; if (st) subCnt[st] = (subCnt[st] || 0) + 1; });
+    list.forEach(function (c) {
+      var tr0 = cacheHas(c.u), st = tr0 ? stripNum(tr0.t) : '';
+      if (st && subCnt[st] >= 3) { var v0 = cacheGet(c.u); if (v0) { var nn = chNum(c.t); v0.title = nn != null && nn >= 1 ? '\uc81c' + (nn | 0) + '\ud654' : c.t; cachePut(c.u, v0, (cIndex()[ckey(c.u)] || {}).w); } }
+    });
     var rows = list.map(function (c, i) {
       var tr = cacheHas(c.u); if (tr && isBadV(cacheGet(c.u))) tr = null;
       var isRead = read[ckey(c.u)] || read[c.u], isCur = ckey(c.u) === ckey(cur) || (curAlias && !curHit && (chNum(c.t) === curN || chNum((cacheHas(c.u) || {}).t || '') === curN) && (curHit = 1));
