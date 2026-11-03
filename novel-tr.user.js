@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.6.1
+// @version      1.6.2
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -620,7 +620,7 @@
     ['mw', '\ubcf8\ubb38 \ud3ed', 20, 400, 1000, function (v) { return v + 'px'; }]
   ];
   var PK = 'nvtrPrefs';
-  var DEF = { theme: 'auto', mode: '', dayT: 'light', nightT: 'dark', pins: [], font: 'pretendard', fontCustom: '', just: 1, fs: 18, lh: 1.8, ps: 0.9, mw: 680, pad: 24, ind: 0, auto: 1, pre: 1, ts: 0, v: 2 };
+  var DEF = { theme: 'auto', mode: '', dayT: 'light', nightT: 'dark', pins: [], font: 'pretendard', fontCustom: '', just: 1, dlg: 0, fs: 18, lh: 1.8, ps: 0.9, mw: 680, pad: 24, ind: 0, auto: 1, pre: 1, ts: 0, v: 2 };
   function fill(p) {
     p = p || {}; Object.keys(DEF).forEach(function (k) { if (p[k] == null) p[k] = DEF[k]; });
     if (!p.mode) { // \uc608\uc804 \uc124\uc815(\ud14c\ub9c8 \ud558\ub098)\uc744 \ub0ae/\ubc24 \ubc29\uc2dd\uc73c\ub85c \uc62e\uae40
@@ -724,6 +724,10 @@
     '.grp p.src{color:var(--mut);opacity:.55}',
     '.grp p.tr{animation:fi .5s cubic-bezier(.2,.8,.2,1) both}',
     '.grp p.tr.live{animation:none}',
+    '.app.dlg1 .dq{color:color-mix(in srgb,var(--ac) 72%,var(--fg))}',
+    '.app.dlg1 .dq.th{color:color-mix(in srgb,var(--ac) 45%,var(--fg));font-style:italic}',
+    '.app.dlg2 .dq{background:linear-gradient(transparent 58%,color-mix(in srgb,var(--ac) 30%,transparent) 58%);-webkit-box-decoration-break:clone;box-decoration-break:clone}',
+    '.app.dlg2 .dq.th{background:linear-gradient(transparent 58%,color-mix(in srgb,var(--mut) 30%,transparent) 58%)}',
     '.app.dk .wrap{font-weight:370;-webkit-font-smoothing:antialiased}',
     '.app.dk .cht{font-weight:600}',
     '.grp p.hold{background:color-mix(in srgb,var(--ac) 12%,transparent)}',
@@ -898,6 +902,18 @@
     pn = $('.pn'), toastEl = $('.toast'), pg = $('.pg'), pgT = $('.pg h3'), pgB = $('.pg .pb'), edBtn = $('.pg .ed');
 
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+  // \ub300\uc0ac \ud45c\uc2dc: \ub530\uc634\ud45c\ub85c \ub458\ub7ec\uc2fc \ubd80\ubd84\uc744 <span class="dq">\ub85c \uac10\uc308 (\ubcf4\uc774\ub294 \ubaa8\uc591\uc740 \uc124\uc815\uc758 '\ub300\uc0ac \uac15\uc870'\uac00 \uc815\ud568)
+  var DQ = /(["\u201c][^"\u201c\u201d]{1,600}?["\u201d]|\u300c[^\u300c\u300d]{1,600}?\u300d|\u300e[^\u300e\u300f]{1,600}?\u300f|\u2018[^\u2018\u2019]{1,400}?\u2019)/g;
+  function setTr(p, text) {
+    text = String(text);
+    if (!/["\u201c\u300c\u300e\u2018]/.test(text)) { p.textContent = text; return p; }
+    var h = text.replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; })
+      .replace(DQ, function (m) { return '<span class="dq' + (m.charAt(0) === '\u2018' ? ' th' : '') + '">' + m + '</span>'; });
+    if (h.indexOf('<span') < 0 && /^\s*["\u201c\u300c\u300e]/.test(text)) h = '<span class="dq">' + h + '</span>'; // \ub2eb\ub294 \ub530\uc634\ud45c \uc5c6\uc774 \ubb38\ub2e8 \ub05d\uae4c\uc9c0 \uc774\uc5b4\uc9c0\ub294 \ub300\uc0ac
+    p.innerHTML = h;
+    return p;
+  }
+  function trP(cls, text) { return setTr(el('p', cls), text); }
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   var toastT;
   function toast(t) { toastEl.textContent = t; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(function () { toastEl.classList.remove('on'); }, 2200); }
@@ -948,6 +964,7 @@
       '--ui': FONTS.pretendard.f, '--fs': prefs.fs + 'px', '--lh': prefs.lh, '--ps': prefs.ps + 'em', '--mw': prefs.mw + 'px',
       '--pad': prefs.pad + 'px', '--ind': prefs.ind ? '1em' : '0', '--ta': prefs.just ? 'justify' : 'left', '--wb': prefs.just ? 'normal' : 'keep-all' }; // \uc591\ucabd \uc815\ub82c\uc740 \uae00\uc790 \ub2e8\uc704 \uc904\ubc14\uafc8\uc774\ub77c\uc57c \ub744\uc5b4\uc4f0\uae30\uac00 \ubc8c\uc5b4\uc9c0\uc9c0 \uc54a\uc74c
     Object.keys(v).forEach(function (k) { app.style.setProperty(k, v[k]); });
+    app.classList.toggle('dlg1', +prefs.dlg === 1); app.classList.toggle('dlg2', +prefs.dlg === 2);
     app.classList.toggle('dk', !!t.dark); // \uc5b4\ub450\uc6b4 \ud14c\ub9c8: \uae00\uc790\ub97c \uc0b4\uc9dd \uac00\ub298\uac8c (\ubc1d\uc740 \uae00\uc528\uac00 \ubc88\uc838 \ubcf4\uc774\ub294 \uac83 \uc904\uc784)
     document.documentElement.style.background = t.bg;
     var mc = document.querySelector('meta[name=theme-color]');
@@ -969,7 +986,8 @@
       h += '<div class="rowx"><span>' + s[1] + '</span><div class="ctl"><button data-act="step" data-v="' + s[0] + '" data-d="-1" aria-label="' + s[1] + ' \uc904\uc774\uae30">\u2212</button><b data-k="' + s[0] + '"></b><button data-act="step" data-v="' + s[0] + '" data-d="1" aria-label="' + s[1] + ' \ub298\ub9ac\uae30">+</button></div></div>';
     });
     h += '<div class="rowx"><span>\uc815\ub82c</span><div class="seg"><button data-act="just" data-v="1">\uc591\ucabd</button><button data-act="just" data-v="0">\uc67c\ucabd</button></div></div>' +
-      '<button class="rowx" data-act="ind"><span>\ub4e4\uc5ec\uc4f0\uae30</span><i class="tg" data-k="ind"></i></button></div>';
+      '<button class="rowx" data-act="ind"><span>\ub4e4\uc5ec\uc4f0\uae30</span><i class="tg" data-k="ind"></i></button>' +
+      '<div class="rowx"><span>\ub300\uc0ac \uac15\uc870</span><div class="seg"><button data-act="dlg" data-v="0">\ub054</button><button data-act="dlg" data-v="1">\uc0c9</button><button data-act="dlg" data-v="2">\ud615\uad11\ud39c</button></div></div></div>';
     h += '<div class="lb">\uc77d\uae30</div><div class="grpbox">' +
       '<button class="rowx" data-act="autoNext"><span>\uc774\uc5b4 \ubcf4\uae30</span><i class="tg" data-k="auto"></i></button>' +
       '<div class="rowx"><span>\ubbf8\ub9ac \ubc88\uc5ed</span><div class="seg"><button data-act="pre" data-v="0">\ub054</button><button data-act="pre" data-v="1">\uc55e\ubd80\ubd84</button><button data-act="pre" data-v="2">\uc804\uccb4</button></div></div></div>';
@@ -1002,6 +1020,7 @@
     syncThemeRow();
     [].forEach.call(pn.querySelectorAll('[data-act=pre]'), function (b) { b.classList.toggle('on', +b.dataset.v === +prefs.pre); });
     [].forEach.call(pn.querySelectorAll('[data-act=just]'), function (b) { b.classList.toggle('on', +b.dataset.v === +prefs.just); });
+    [].forEach.call(pn.querySelectorAll('[data-act=dlg]'), function (b) { b.classList.toggle('on', +b.dataset.v === +prefs.dlg); });
     [].forEach.call(pn.querySelectorAll('.tg'), function (g) { g.classList.toggle('on', !!prefs[g.dataset.k]); });
     STEPS.forEach(function (s) { var e = pn.querySelector('b[data-k=' + s[0] + ']'); if (e) e.textContent = s[5](prefs[s[0]]); });
   }
@@ -1057,7 +1076,7 @@
   }
   function itemOf(node) { for (var i = 0; i < chapters.length; i++) if (chapters[i].sec.contains(node)) return chapters[i]; return null; }
   function setPara(it, p, text) {
-    p.textContent = text; p.classList.remove('tr'); void p.offsetWidth; p.classList.add('tr');
+    setTr(p, text); p.classList.remove('tr'); void p.offsetWidth; p.classList.add('tr');
     if (it.v && p._idx != null) { it.v.lines[p._idx] = text; cachePut(it.ch.url, it.v, it.ch.id); }
   }
   async function retrParagraph(p) {
@@ -1258,7 +1277,7 @@
       if (whole) { grps.forEach(function (g, k) { if (k) g.remove(); }); grps = [grps[0]]; ci = 0; }
       var g = grps[ci]; if (!g || gi[ci]) return; gi[ci] = 1; doneN = whole ? total : doneN + 1;
       g.innerHTML = '';
-      ls.forEach(function (l, k) { var p = el('p', 'tr', l); p.style.animationDelay = Math.min(k, 12) * 25 + 'ms'; p._grp = whole ? -1 : ci; g.appendChild(p); });
+      ls.forEach(function (l, k) { var p = trP('tr', l); p.style.animationDelay = Math.min(k, 12) * 25 + 'ms'; p._grp = whole ? -1 : ci; g.appendChild(p); });
     }
     // \uae00\uc790\uac00 \uc624\ub294 \ub300\ub85c: \ubc88\uc5ed\ub41c \uc904\uc740 \ubc88\uc5ed\uc73c\ub85c, \uc544\uc9c1 \uc548 \uc628 \uc904\uc740 \uc6d0\ubb38 \uadf8\ub300\ub85c
     var pend0 = {}, praf = null;
@@ -1276,7 +1295,7 @@
           var ls = tx.split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
           ls = ls.filter(function (l) { var m = l.match(/^\[\uc81c\ubaa9\]\s*(.*)$/); if (m && c === 0 && m[1]) setTitle(item, m[1]); return !m; });
           g.innerHTML = '';
-          ls.forEach(function (l) { g.appendChild(el('p', 'tr live', l)); });
+          ls.forEach(function (l) { g.appendChild(trP('tr live', l)); });
           src.slice(ls.length).forEach(function (l) { g.appendChild(el('p', 'src', l)); });
         });
       }, 250);
@@ -1805,6 +1824,7 @@
       if (!fv) { toast('\uae00\uaf34 \uc774\ub984\uc774\ub098 \uc8fc\uc18c\ub97c \uc368 \uc8fc\uc138\uc694'); return; }
       prefs.fontCustom = fv; prefs.font = 'custom'; savePrefs(); applyPrefs(); openFonts(); toast('\uc801\uc6a9\ud588\uc5b4\uc694. \uae00\uaf34\uc774 \uc548 \ubc14\ub00c\uba74 \uc774\ub984\uc774\ub098 \uc8fc\uc18c\ub97c \ud655\uc778\ud574 \uc8fc\uc138\uc694'); return;
     }
+    if (name === 'dlg') { prefs.dlg = +t.dataset.v; savePrefs(); applyPrefs(); syncPanel(); return; }
     if (name === 'just') { prefs.just = +t.dataset.v; savePrefs(); applyPrefs(); syncPanel(); return; }
     if (name === 'pre') { prefs.pre = +t.dataset.v; savePrefs(); applyPrefs(); syncPanel(); return; }
     if (name === 'ind') { prefs.ind = prefs.ind ? 0 : 1; savePrefs(); applyPrefs(); syncPanel(); return; }
