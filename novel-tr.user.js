@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.5.1
+// @version      1.5.2
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -605,6 +605,7 @@
     next: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
     aa: '<svg viewBox="0 0 24 24"><path d="M3 18l5-12 5 12M4.7 14h6.6M15 18v-5.5a2.5 2.5 0 0 1 5 0V18M15 15h5"/></svg>',
     x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    dl: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
     back: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>',
     redo: '<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>',
     undo: '<svg viewBox="0 0 24 24"><path d="M4 11a8 8 0 1 1 2.3 5.7M4 4v7h7"/></svg>',
@@ -700,15 +701,24 @@
     '.cont small{font-size:12px;color:var(--ac);font-weight:600}',
     '.cont b{display:block;font-size:16px;font-weight:700;margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.cont span{display:block;font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:18px 14px}',
+    '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:18px 14px;align-items:start}',
     '.tile{position:relative;text-align:left;display:block;width:100%}',
     '.tile .cover{width:100%;border-radius:12px}',
     '.tile .cover svg{width:44%}',
     '.tile b{display:block;font-size:13.5px;font-weight:600;margin-top:8px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}',
     '.tile span{display:block;font-size:11.5px;color:var(--mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.tile .del{position:absolute;top:-8px;right:-8px;width:30px;height:30px;border-radius:50%;background:#e5534b;color:#fff;display:none;align-items:center;justify-content:center}',
-    '.tile .del svg{width:16px;height:16px}',
-    '.pg.edit .tile .del{display:flex}',
+    '.tile,.cont{transition:transform .25s cubic-bezier(.2,.8,.2,1)}',
+    '.tile.press,.cont.press{transform:scale(.96)}',
+    '.tags{display:flex;flex-wrap:wrap;gap:4px;margin:5px 0 2px;max-height:44px;overflow:hidden}',
+    '.tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;line-height:1;padding:5px 9px;border-radius:999px;white-space:nowrap}',
+    '.tag b{font-weight:500;opacity:.7;font-size:13px}',
+    '.tagbox{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}',
+    '.tagbox .tag{font-size:13.5px;padding:8px 12px;min-height:34px}',
+    '.hd.wk{display:flex;align-items:center;gap:12px}',
+    '.hd.wk h3{flex:1;min-width:0;font-size:17px;line-height:1.35}',
+    '.wide.danger{color:#e5534b}',
+    '.wide.danger.sure{background:#e5534b;color:#fff;border-color:#e5534b}',
+    '.lphint{font-size:12.5px;color:var(--mut);margin:0 2px 12px;text-align:center}',
     '.empty{text-align:center;color:var(--mut);padding:60px 20px;font-size:14px;line-height:1.7}',
     '.row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:54px;padding:10px 4px;border-bottom:1px solid color-mix(in srgb,var(--bd) 60%,transparent)}',
     '.row .rt{flex:1;min-width:0;font-size:15px;line-height:1.4}',
@@ -1323,31 +1333,46 @@
     toast(keys.length + '\ud654\ub97c TXT\ub85c \uc800\uc7a5\ud588\uc5b4\uc694');
   }
   var pageMode = '';
-  function openPage(mode, title) { pageMode = mode; pgT.textContent = title; pg.classList.remove('edit'); edBtn.style.display = ''; edBtn.textContent = mode === 'lib' ? '\ud3b8\uc9d1' : 'TXT \uc800\uc7a5'; edBtn.dataset.act = mode === 'lib' ? 'libEdit' : 'exportCur'; dropLayer('ui'); dropLayer('sheet'); app.classList.add('page'); pushLayer('page'); }
+  function openPage(mode, title) { pageMode = mode; pgT.textContent = title; pg.classList.remove('edit'); edBtn.style.display = mode === 'lib' ? 'none' : ''; edBtn.textContent = 'TXT \uc800\uc7a5'; edBtn.dataset.act = 'exportCur'; dropLayer('ui'); dropLayer('sheet'); app.classList.add('page'); pushLayer('page'); }
   function closePage() { dropLayer('page'); }
   function renderLib() { openPage('lib', '\ub0b4 \uc11c\uc7ac'); renderLibBody(); }
+  // \ud0dc\uadf8: \uc791\ud488 \uc81c\ubaa9 \uc544\ub798 \uc791\uc740 \ud0c0\uc6d0. \uc0c9\uc740 \ud45c\uc9c0\uc640 \uac19\uc740 \ub124 \uac00\uc9c0 \uc911 \ud0dc\uadf8 \uae00\uc790\ub85c \uc815\ud574\uc9d0
+  function tagHtml(t, del, id) {
+    var c = COV_C[coverHash('tag:' + t) % COV_C.length];
+    return '<span class="tag" style="background:color-mix(in srgb, ' + c + ' 22%, var(--card));color:color-mix(in srgb, ' + c + ' 55%, var(--fg))"' +
+      (del ? ' data-act="tagDel" data-id="' + esc(id) + '" data-tag="' + esc(t) + '"' : '') + '>' + esc(t) + (del ? '<b>\u00d7</b>' : '') + '</span>';
+  }
+  function tagsHtml(w) { return w.tags && w.tags.length ? '<div class="tags">' + w.tags.map(function (t) { return tagHtml(t); }).join('') + '</div>' : ''; }
+  // \ud45c\uc9c0\ub97c \uae38\uac8c \ub204\ub974\uba74: TXT \uc800\uc7a5 \u00b7 \ud0dc\uadf8 \u00b7 \uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6b0\uae30
+  var workId0 = null;
+  function openWork(id) {
+    var w = libAll()[id]; if (!w) return;
+    workId0 = id; pn.dataset.mode = 'work'; gset('lpSeen', 1);
+    var h = '<div class="grab"></div><div class="hd wk">' + coverHtml(id, 'width:44px') + '<h3>' + esc(bookName(w)) + '</h3><button class="x" data-act="close" aria-label="\ub2eb\uae30">' + I.x + '</button></div>' +
+      '<div class="tagbox">' + ((w.tags || []).map(function (t) { return tagHtml(t, true, id); }).join('') || '<span class="hint" style="margin:0">\ud0dc\uadf8\uac00 \uc5c6\uc5b4\uc694</span>') + '</div>' +
+      '<div class="urlrow"><input class="url tagin" type="text" maxlength="12" placeholder="\ud0dc\uadf8 \uc774\ub984 (\uc608: \uc644\uacb0, \ud68c\uadc0, \uc7ac\ubc0c\uc74c)"><button class="go" data-act="tagAdd" data-id="' + esc(id) + '">\ucd94\uac00</button></div>' +
+      '<button class="wide" data-act="export" data-id="' + esc(id) + '">' + I.dl + '\ubc88\uc5ed\ub41c \ud654 TXT\ub85c \uc800\uc7a5</button>' +
+      '<button class="wide danger" data-act="libDelAsk" data-id="' + esc(id) + '">' + I.x + '\uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6b0\uae30</button>';
+    pn.innerHTML = h; pn.scrollTop = 0; showSheet();
+  }
+  function addTag(id, inp) {
+    var v = (inp && inp.value || '').replace(/\s+/g, ' ').trim().slice(0, 12); if (!v) { inp && inp.focus(); return; }
+    var L = libAll(), w = L[id]; if (!w) return;
+    w.tags = w.tags || []; if (w.tags.indexOf(v) < 0) w.tags.push(v);
+    gset('lib', L); renderLibBody(); openWork(id);
+  }
   function renderLibBody() {
     var LA = libAll(), ws = Object.keys(LA).filter(function (k) { return k !== '__v2' && LA[k] && LA[k].last; }).map(function (k) { return LA[k]; }).sort(function (a, b) { return b.ts - a.ts; });
     if (!ws.length) { pgB.innerHTML = '<div class="empty">\uc544\uc9c1 \uc77d\uc740 \uc791\ud488\uc774 \uc5c6\uc5b4\uc694.<br>\uc18c\uc124 \ud398\uc774\uc9c0\uc5d0\uc11c \ubc88\uc5ed \ubc84\ud2bc\uc744 \ub204\ub974\uba74 \uc5ec\uae30\uc5d0 \uc313\uc5ec\uc694.</div><button class="btn" style="display:flex;margin:0 auto" data-act="libRestore">\ubc88\uc5ed \uae30\ub85d\uc5d0\uc11c \uc11c\uc7ac \ub2e4\uc2dc \ub9cc\ub4e4\uae30</button>'; return; }
-    if (pg.classList.contains('edit')) {
-      pgB.innerHTML = '<p class="hint" style="color:var(--mut);font-size:13px;margin:0 2px 10px">\uc791\ud488\ub9c8\ub2e4 \ubc88\uc5ed\ub41c \ud654\ub97c TXT \ud30c\uc77c\ub85c \uc800\uc7a5\ud558\uac70\ub098 \uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6b8 \uc218 \uc788\uc5b4\uc694.</p>' +
-        ws.map(function (w) {
-          return '<div class="row" style="gap:8px">' + coverHtml(w.id, 'width:40px') +
-            '<span class="rt">' + esc(bookName(w)) + '<small>' + esc(w.last.title) + '</small></span>' +
-            '<button class="mini" data-act="export" data-id="' + esc(w.id) + '">TXT</button>' +
-            '<button class="mini" style="color:#e5534b" data-act="libDel" data-id="' + esc(w.id) + '">\uc0ad\uc81c</button></div>';
-        }).join('');
-      return;
-    }
     var w0 = ws[0], h = '';
-    h += '<button class="cont" data-act="open" data-u="' + esc(w0.last.url) + '">' + coverHtml(w0.id) +
-      '<div class="ci"><small>\uc774\uc5b4 \uc77d\uae30</small><b>' + esc(bookName(w0)) + '</b><span>' + esc(w0.last.title) + ' \u00b7 ' + relTime(w0.ts) + '</span></div>' + I.next + '</button>';
+    if (!gget('lpSeen', 0)) h += '<p class="lphint">\ud45c\uc9c0\ub97c \uae38\uac8c \ub204\ub974\uba74 TXT \uc800\uc7a5 \u00b7 \ud0dc\uadf8 \u00b7 \uc9c0\uc6b0\uae30\ub97c \ud560 \uc218 \uc788\uc5b4\uc694</p>';
+    h += '<button class="cont" data-act="open" data-id="' + esc(w0.id) + '" data-u="' + esc(w0.last.url) + '">' + coverHtml(w0.id) +
+      '<div class="ci"><small>\uc774\uc5b4 \uc77d\uae30</small><b>' + esc(bookName(w0)) + '</b><span>' + esc(w0.last.title) + ' \u00b7 ' + relTime(w0.ts) + '</span>' + tagsHtml(w0) + '</div>' + I.next + '</button>';
     if (ws.length > 1) {
       h += '<div class="grid">';
       ws.slice(1).forEach(function (w) {
-        h += '<button class="tile" data-act="open" data-u="' + esc(w.last.url) + '">' + coverHtml(w.id) +
-          '<b>' + esc(bookName(w)) + '</b><span>' + esc(w.last.title) + '</span><span>' + relTime(w.ts) + '</span>' +
-          '<i class="del" data-act="libDel" data-id="' + esc(w.id) + '">' + I.x + '</i></button>';
+        h += '<button class="tile" data-act="open" data-id="' + esc(w.id) + '" data-u="' + esc(w.last.url) + '">' + coverHtml(w.id) +
+          '<b>' + esc(bookName(w)) + '</b>' + tagsHtml(w) + '<span>' + esc(w.last.title) + '</span><span>' + relTime(w.ts) + '</span></button>';
       });
       h += '</div>';
     }
@@ -1549,8 +1574,14 @@
     if (name === 'libEdit') { var on = !pg.classList.contains('edit'); pg.classList.toggle('edit', on); edBtn.textContent = on ? '\uc644\ub8cc' : '\ud3b8\uc9d1'; renderLibBody(); return; }
     if (name === 'export') { exportWork(t.dataset.id); return; }
     if (name === 'exportCur') { var ci2 = chapters[curIndex()] || lastItem(); if (ci2) exportWork(ci2.ch.id); return; }
-    if (name === 'libDel') { var L = libAll(); delete L[t.dataset.id]; gset('lib', L); renderLibBody(); toast('\uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6e0\uc5b4\uc694'); return; }
-    if (name === 'open') { if (pg.classList.contains('edit')) return; openChapter(t.dataset.u, pageMode === 'lib' ? 'lib' : 'toc'); return; }
+    if (name === 'libDel') { var L = libAll(); delete L[t.dataset.id]; gset('lib', L); closeSheet(); renderLibBody(); toast('\uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6e0\uc5b4\uc694 (\ubc88\uc5ed\uc740 \ub0a8\uc544 \uc788\uc5b4\uc694)'); return; }
+    if (name === 'libDelAsk') { // \uc2e4\uc218 \ubc29\uc9c0: \ud55c \ubc88 \ub354 \ub20c\ub7ec\uc57c \uc9c0\uc6c0
+      if (t.classList.contains('sure')) { act('libDel', t); return; }
+      t.classList.add('sure'); t.innerHTML = I.x + '\ud55c \ubc88 \ub354 \ub204\ub974\uba74 \uc9c0\uc6cc\uc694'; buzz(); return;
+    }
+    if (name === 'tagAdd') { addTag(t.dataset.id, pn.querySelector('.tagin')); return; }
+    if (name === 'tagDel') { var L3 = libAll(), w3 = L3[t.dataset.id]; if (w3 && w3.tags) { w3.tags = w3.tags.filter(function (x) { return x !== t.dataset.tag; }); gset('lib', L3); renderLibBody(); openWork(t.dataset.id); } return; }
+    if (name === 'open') { openChapter(t.dataset.u, pageMode === 'lib' ? 'lib' : 'toc'); return; }
     if (name === 'tocCur' || name === 'tocTop' || name === 'tocEnd' || name === 'tocLastTr') {
       var trs = pgB.querySelectorAll('.row.tr');
       var r = name === 'tocTop' ? pgB.querySelector('.row') : name === 'tocEnd' ? pgB.querySelector('.row:last-of-type') : name === 'tocLastTr' ? trs[trs.length - 1] : (pgB.querySelector('.row.cur') || trs[trs.length - 1]);
@@ -1676,6 +1707,11 @@
   }
   function onInput(e) { return pathOf(e).some(function (n) { return n.tagName === 'INPUT'; }); }
   var down = null, lastPtr = 0, lpT = null, lpFired = false;
+  root.addEventListener('keydown', function (e) { // \ud0dc\uadf8 \uc785\ub825: \uc5d4\ud130\ub85c \ucd94\uac00
+    var tg = e.composedPath && e.composedPath()[0];
+    if (e.key === 'Enter' && tg && tg.classList && tg.classList.contains('tagin') && workId0) { e.preventDefault(); addTag(workId0, tg); }
+  }, true);
+  function unpress() { [].forEach.call(root.querySelectorAll('.press'), function (n) { n.classList.remove('press'); }); }
   function fire(e) {
     var t = actTarget(e);
     if (t) { act(t.dataset.act, t); return; }
@@ -1687,16 +1723,17 @@
     if (!inUI(e)) return;
     e.stopImmediatePropagation();
     down = { x: e.clientX, y: e.clientY, t: Date.now() }; lpFired = false; clearTimeout(lpT);
-    var p = paraOf(e);
-    if (p && !app.classList.contains('sheet')) lpT = setTimeout(function () { lpFired = true; buzz(); openPara(p); }, 480);
+    var p = paraOf(e), wk = pageMode === 'lib' && app.classList.contains('page') && !app.classList.contains('sheet') ? pathOf(e).filter(function (n) { return n.classList && (n.classList.contains('tile') || n.classList.contains('cont')) && n.dataset.id; })[0] : null;
+    if (wk) { wk.classList.add('press'); lpT = setTimeout(function () { lpFired = true; wk.classList.remove('press'); buzz(); openWork(wk.dataset.id); }, 480); }
+    else if (p && !app.classList.contains('sheet')) lpT = setTimeout(function () { lpFired = true; buzz(); openPara(p); }, 480);
   }, true);
   window.addEventListener('pointermove', function (e) {
     if (!down || !inUI(e)) return;
-    if (Math.abs(e.clientX - down.x) > 10 || Math.abs(e.clientY - down.y) > 10) clearTimeout(lpT);
+    if (Math.abs(e.clientX - down.x) > 10 || Math.abs(e.clientY - down.y) > 10) { clearTimeout(lpT); unpress(); }
   }, true);
   window.addEventListener('pointerup', function (e) {
     if (!inUI(e)) return;
-    e.stopImmediatePropagation(); clearTimeout(lpT);
+    e.stopImmediatePropagation(); clearTimeout(lpT); unpress();
     if (lpFired) { lpFired = false; down = null; lastPtr = Date.now(); return; }
     if (!down || Math.abs(e.clientX - down.x) > 12 || Math.abs(e.clientY - down.y) > 12 || Date.now() - down.t > 800) { down = null; return; }
     down = null; lastPtr = Date.now(); fire(e);
