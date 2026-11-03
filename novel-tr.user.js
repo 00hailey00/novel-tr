@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.6.5
+// @version      1.6.6
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -409,6 +409,13 @@
     return cidx;
   }
   function cacheGet(u) { var k = ckey(u); return cIndex()[k] ? gget('c:' + k, null) : null; }
+  // \uc608\uc804 \ubc84\uc804\uc774 \uad11\uace0 \ubb38\uad6c\ub098 '\ubcf8\ubb38 \uc5c6\uc74c' \uc548\ub0b4\ub97c \ubc88\uc5ed\ud574 \uc800\uc7a5\ud55c \ud654: \uc800\uc7a5\ub41c \ubc88\uc5ed\uc73c\ub85c \uce58\uc9c0 \uc54a\uc74c(\uc5f4\uba74 \ub2e4\uc2dc \ubc88\uc5ed)
+  var BADV = /USD|VIP|\uad11\uace0|\ub85c\uadf8\uc778|\uacb0\uc81c|\ud68c\uc6d0\s*\uac00\uc785|\ubcf8\ubb38\uc774 \uc5c6|\u7ae0[\u7bc0\u8282]\u5167\u5bb9\u7f3a\u5931|\u7ae0\u8282\u5185\u5bb9\u7f3a\u5931|\ub0b4\uc6a9\uc774 (\uc5c6|\ub204\ub77d)|\uc874\uc7ac\ud558\uc9c0 \uc54a/;
+  function isBadV(v) {
+    if (!v || !v.lines || !v.lines.length) return true;
+    var all = v.lines.join('');
+    return all.length < 700 && BADV.test(all);
+  }
   function cacheDel(u) { var k = ckey(u), I = cIndex(); delete I[k]; gdel('c:' + k); gset('cidx', I); }
   function cachePut(u, v, wid) {
     var k = ckey(u), I = cIndex();
@@ -513,6 +520,7 @@
     ctl = ctl || {};
     var chunks = makeChunks(ch);
     var hit = cacheGet(ch.url);
+    if (hit && isBadV(hit)) { cacheDel(ch.url); hit = null; }
     if (hit && hit.lines && hit.lines.length) {
       if (hit.parts && hit.parts.length === chunks.length) {
         var k = 0;
@@ -937,6 +945,8 @@
     '.empty{text-align:center;color:var(--mut);padding:60px 20px;font-size:14px;line-height:1.7}',
     '.row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:54px;padding:10px 4px;border-bottom:1px solid color-mix(in srgb,var(--bd) 60%,transparent)}',
     '.row .rt{flex:1;min-width:0;font-size:15px;line-height:1.4}',
+    '.row .rn{flex:none;width:34px;text-align:right;font-size:13px;color:var(--mut);font-variant-numeric:tabular-nums}',
+    '.row.cur .rn{color:var(--ac)}',
     '.row .rt small{display:block;font-size:12px;color:var(--mut)}',
     '.row.read .rt{color:var(--mut)}',
     '.row.cur{background:color-mix(in srgb,var(--ac) 10%,transparent);border-radius:10px;padding-left:10px}',
@@ -1326,6 +1336,11 @@
       if (limit !== 0) startTranslate(ch, null, null, limit); return ch;
     }
     catch (e) { return { err: e }; }
+  }
+  // \uc81c\ubaa9 \uc55e\uc758 \ud654 \ubc88\ud638 \ubd80\ubd84(027 / \uc81c27\ud654 / \u7b2c\u4e8c\u5341\u4e03\u7ae0 / (2/2) \ub4f1)\uc744 \ub5bc\uace0 \uc18c\uc81c\ubaa9\ub9cc
+  function stripNum(t) {
+    return String(t || '').replace(/^\s*(\uc81c\s*)?\d+\s*(\ud654|\uc7a5|\ud68c|\ud3b8)?\s*/, '').replace(/^\s*\u7b2c\s*[\d\u96f6\u3007\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\u767e\u5343\u4e24]+\s*[\u7ae0\u56de\u8282\u7bc0\u8bdd\u8a71\u5377\u96c6\u7bc7]\s*/, '')
+      .replace(/[(\uff08]\s*\d+\s*\/\s*\d+\s*[)\uff09]/, '').replace(/^\s*[:\uff1a.\-\u2014\u00b7\u3001]\s*/, '').replace(/^(\u958b\u59cb\u95b1\u8b80|\u5f00\u59cb\u9605\u8bfb)$/, '').trim();
   }
   function titleParts(t) {
     var m = String(t).match(/^\s*((?:\uc81c\s*)?[\d,]+\s*[\ud654\uc7a5\ud68c\ud3b8]|\u7b2c\s*[\d\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\u767e\u5343\u96f6\u3007\u4e24]+\s*[\u7ae0\u56de\u8282\u7bc0\u8bdd\u8a71])\s*[:\uff1a.\-\u2014]?\s*(.*)$/);
@@ -1849,10 +1864,16 @@
     list.forEach(function (c) { var n = chNum(c.t); if (n != null && n >= 1) { if (prevN != null && n - prevN > 5 && !gap) gap = [prevN + 1, n - 1]; prevN = n; } });
     var read = (libAll()[it.ch.id] || {}).read || {}, cur = it.ch.url.replace(/#.*$/, ''), readN = 0, trN = 0;
     var rows = list.map(function (c, i) {
-      var tr = cacheHas(c.u), isRead = read[ckey(c.u)] || read[c.u], isCur = ckey(c.u) === ckey(cur) || (curAlias && !curHit && (chNum(c.t) === curN || chNum((cacheHas(c.u) || {}).t || '') === curN) && (curHit = 1));
+      var tr = cacheHas(c.u); if (tr && isBadV(cacheGet(c.u))) tr = null;
+      var isRead = read[ckey(c.u)] || read[c.u], isCur = ckey(c.u) === ckey(cur) || (curAlias && !curHit && (chNum(c.t) === curN || chNum((cacheHas(c.u) || {}).t || '') === curN) && (curHit = 1));
       if (isRead) readN++; if (tr) trN++;
-      return '<button class="row' + (isRead ? ' read' : '') + (isCur ? ' cur' : '') + (tr ? ' tr' : '') + '" data-act="open" data-u="' + esc(c.u) + '"><span class="rt">' +
-        esc(tr ? tr.t : c.t) + (tr && tr.t !== c.t ? '<small>' + esc(c.t) + '</small>' : '') + '</span>' +
+      // \uc0ac\uc774\ud2b8\ub9c8\ub2e4(\uac19\uc740 \uc791\ud488 \uc548\uc5d0\uc11c\ub3c4) '027', '\uc81c027\ud654', '\u7b2c27\u7ae0 \u2026'\ucc98\ub7fc \uc81c\ubaa9 \ubaa8\uc591\uc774 \uc81c\uac01\uac01\uc774\ub77c: \ubc88\ud638 \uce78 + \uc18c\uc81c\ubaa9\uc73c\ub85c \ud1b5\uc77c
+      var num = chNum(c.t); if (num == null || num < 1) num = tr ? chNum(tr.t) : null;
+      var subO = stripNum(c.t), subT = tr ? stripNum(tr.t) : '';
+      var main = subT || subO || (num != null && num >= 1 ? (num | 0) + '\ud654' : c.t), small = subT && subO && subO !== subT ? subO : '';
+      return '<button class="row' + (isRead ? ' read' : '') + (isCur ? ' cur' : '') + (tr ? ' tr' : '') + '" data-act="open" data-u="' + esc(c.u) + '">' +
+        '<span class="rn">' + ((subT || subO) && num != null && num >= 1 && num % 1 === 0 ? num : '') + '</span><span class="rt">' +
+        esc(main) + (small ? '<small>' + esc(small) + '</small>' : '') + '</span>' +
         (isCur ? '<span class="bdg">\uc77d\ub294 \uc911</span>' : tr ? '<span class="bdg">\ubc88\uc5ed\ub428</span>' : '') + '</button>';
     });
     pgB.innerHTML = '<div class="tochd"><div class="tst"><b>' + list.length + '\ud654</b><span>\uc77d\uc74c ' + readN + '</span><span>\ubc88\uc5ed ' + trN + '</span></div>' +
