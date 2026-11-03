@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.7.0
+// @version      1.7.1
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -160,23 +160,36 @@
     return t;
   }
   // \uc18c\uc81c\ubaa9\uc744 h1\uc774 \uc544\ub2c8\ub77c \ubcf8\ubb38 \uccab \uc904\uc5d0 \uc801\ub294 \uc0ac\uc774\ud2b8(oop.tw \ub4f1): \uc81c\ubaa9\uc774 \ubc88\ud638\ubfd0\uc774\uace0 \uccab \uc904\uc774 \uc9e7\uace0 \ubb38\uc7a5\ubd80\ud638\ub85c \uc548 \ub05d\ub098\uba74 \uc18c\uc81c\ubaa9\uc73c\ub85c \uc62c\ub9bc
-  function subLine(s) {
+  // \uadf8\ub7f0 \uc0ac\uc774\ud2b8\ub85c \ud55c \ubc88 \ud655\uc778\ub418\uba74(subHost) '\u2026\uac74\uac00?'\ucc98\ub7fc \ubb3c\uc74c\ud45c\u00b7\ub290\ub08c\ud45c\ub85c \ub05d\ub098\ub294 \uc18c\uc81c\ubaa9\ub3c4 \ubc1b\uc544\ub4e4\uc784
+  function subLine(s, loose) {
     s = String(s || '').trim();
-    return s.length >= (/[\u4e00-\u9fff]/.test(s) ? 2 : 4) && s.length <= 40 && !/^[\u201c\u300c\u300e"'\u2018(\uff08\[\u3010\u3014]/.test(s) && !/[\u3002.\uff01!\uff1f?\u2026\u201d\u300d\u300f"'\u2019~\uff5e)\uff09\]\u3011\u3015:\uff1a]$/.test(s) && !/https?:|www\./i.test(s);
+    var end = loose ? /[\u3002.\u2026\u201d\u300d\u300f"'\u2019~\uff5e)\uff09\]\u3011\u3015:\uff1a\uff0c,\u3001]$/ : /[\u3002.\uff01!\uff1f?\u2026\u201d\u300d\u300f"'\u2019~\uff5e)\uff09\]\u3011\u3015:\uff1a\uff0c,\u3001]$/;
+    return s.length >= (/[\u4e00-\u9fff]/.test(s) ? 2 : 4) && s.length <= (loose ? 32 : 40) && !/^[\u201c\u300c\u300e"'\u2018(\uff08\[\u3010\u3014\u2014\-]/.test(s) && !end.test(s) && !/https?:|www\./i.test(s);
   }
-  function liftSub(t, L) {
+  function subHost(u, set) {
+    var H = gget('subHost', {}) || {}, h = hostOf(u);
+    if (set && !H[h]) { H[h] = 1; gset('subHost', H); }
+    return !!H[h];
+  }
+  function liftSub(t, L, loose) {
     if (stripNum(t) || !L || L.length < 3) return { t: t, L: L };
     var i = 0;
     if (!stripNum(L[0]) || L[0].replace(/\s+/g, '') === String(t).replace(/\s+/g, '')) i = 1; // \ubcf8\ubb38 \uccab \uc904\uc774 '\u7b2c3\u7ae0'\ucc98\ub7fc \uc81c\ubaa9 \ub418\ud480\uc774\uba74 \uac74\ub108\ub700
-    if (L.length - i < 3 || !subLine(L[i])) return { t: t, L: L };
-    return { t: (t + ' ' + L[i]).trim(), L: L.slice(i + 1) };
+    if (L.length - i < 3 || !subLine(L[i], loose)) return { t: t, L: L };
+    return { t: (t + ' ' + L[i]).trim(), L: L.slice(i + 1), lifted: 1 };
+  }
+  // \uc5c4\uaca9\ud558\uac8c \uba3c\uc800 \ubcf4\uace0, \uadf8 \uc0ac\uc774\ud2b8\uac00 '\uccab \uc904 \uc18c\uc81c\ubaa9' \uc0ac\uc774\ud2b8\ub85c \ud655\uc778\ub410\uc73c\uba74 \ub290\uc2a8\ud558\uac8c \ud55c \ubc88 \ub354
+  function liftFor(u, t, L) {
+    var r = liftSub(t, L);
+    if (r.lifted) { subHost(u, 1); return r; }
+    return subHost(u) ? liftSub(t, L, 1) : r;
   }
   // \uc774\ubbf8 \ubc88\uc5ed\ud574 \ub454 \ud654: \ubc88\uc5ed\ubcf8 \uccab \uc904\uc774 \uc18c\uc81c\ubaa9\uc774\uba74 \uc81c\ubaa9\uc73c\ub85c \uc62e\uae40
   function liftCached(u, v) {
     v = v || cacheGet(u);
     if (!v || !v.lines || stripNum(v.title || '')) return v;
-    var r = liftSub(v.title || '', v.lines);
-    if (r.L === v.lines) return v;
+    var r = liftFor(u, v.title || '', v.lines);
+    if (!r.lifted) return v;
     var cut = v.lines.length - r.L.length;
     v.title = r.t; v.lines = r.L;
     if (v.parts && v.parts.length) v.parts[0] = Math.max(0, v.parts[0] - cut);
@@ -225,7 +238,7 @@
       var m = x.textContent.trim().match(PR) || (/^H[123]$/.test(x.tagName) && x.textContent.match(/[(\uff08]\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*[)\uff09]\s*$/));
       if (m && +m[1] >= 1 && +m[1] <= +m[2] && +m[2] > 1) { part = [+m[1], +m[2]]; return true; } return false;
     });
-    var ls = liftSub(titleOf(doc).replace(/\s*[(\uff08]\s*\d{1,2}\s*\/\s*\d{1,2}\s*[)\uff09]\s*$/, ''), lines(body));
+    var ls = liftFor(url, titleOf(doc).replace(/\s*[(\uff08]\s*\d{1,2}\s*\/\s*\d{1,2}\s*[)\uff09]\s*$/, ''), lines(body));
     return { url: url, part: part, title: ls.t, lines: ls.L, links: cands.filter(function (c) { return c.t; }).slice(0, 120),
       next: findLink(doc, url, 'next', cands), prev: findLink(doc, url, 'prev', cands) };
   }
@@ -1766,7 +1779,7 @@
     async function one(u) {
       try {
         var d = await getDoc(u), t = titleOf(d), bd = findBody(d);
-        var t0 = t; if (bd) t = liftSub(t, lines(bd)).t;
+        var t0 = t; if (bd) t = liftFor(u, t, lines(bd)).t;
         var sub = stripNum(t);
         if (sub && hanLen(sub) > 0) found.push({ u: u, t: t.replace(/\s+/g, ' ').trim(), body: t !== t0 });
       } catch (e) { }
@@ -1936,6 +1949,9 @@
     // \uc5ec\ub7ec \ud654\uc5d0 \ub611\uac19\uc740 \uc18c\uc81c\ubaa9\uc774 \ubd99\uc5b4 \uc788\uc73c\uba74(\uc608\uc804 \ubc84\uc804\uc774 \uc0ac\uc774\ud2b8 \ubb38\uad6c\ub97c \uc18c\uc81c\ubaa9\uc73c\ub85c \uc798\ubabb \ub123\uc740 \uacbd\uc6b0) \uc9c0\uc6b0\uace0 \ubc88\ud638\ub9cc \ub0a8\uae40
     var subCnt = {};
     list.forEach(function (c) { var tr0 = cacheHas(c.u), st = tr0 ? stripNum(tr0.t) : ''; if (st) subCnt[st] = (subCnt[st] || 0) + 1; });
+    // \uc0ac\uc774\ud2b8 \ubaa9\ucc28\ub294 \ubc88\ud638\ubfd0\uc778\ub370 \ubc88\uc5ed\ubcf8\uc5d4 \uc11c\ub85c \ub2e4\ub978 \uc18c\uc81c\ubaa9\uc774 \uc5ec\ub7ff \u2192 \ubcf8\ubb38 \uccab \uc904\uc5d0 \uc18c\uc81c\ubaa9\uc744 \uc801\ub294 \uc0ac\uc774\ud2b8
+    var liftN = 0; list.forEach(function (c) { var tr0 = cacheHas(c.u), st = tr0 ? stripNum(tr0.t) : ''; if (st && subCnt[st] < 3 && !stripNum(c.t)) liftN++; });
+    if (liftN >= 2) subHost(it.ch.url, 1);
     list.forEach(function (c) {
       var tr0 = cacheHas(c.u), st = tr0 ? stripNum(tr0.t) : '';
       if (st && subCnt[st] >= 3) { var v0 = cacheGet(c.u); if (v0) { var nn = chNum(c.t); v0.title = nn != null && nn >= 1 ? '\uc81c' + (nn | 0) + '\ud654' : c.t; cachePut(c.u, v0, (cIndex()[ckey(c.u)] || {}).w); st = ''; } }
