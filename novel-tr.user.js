@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.6.8
+// @version      1.6.9
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -397,17 +397,21 @@
   // ---- \ubc88\uc5ed \uc800\uc7a5\uc18c: \ud654\ub9c8\ub2e4 \ub530\ub85c \uc800\uc7a5 (\uc791\ud488\uc774 \ub9ce\uc544\ub3c4 \ube60\ub974\uac8c), \uc8fc\uc18c\ub294 www\u00b7#\u2026 \ucc28\uc774\ub97c \ubb34\uc2dc ----
   var CMAX = 3000;
   function ckey(u) { return String(u).replace(/#.*$/, '').replace(/^(https?:\/\/)www\./i, '$1'); }
-  var cidx = null;
+  // \ucc3d(\ud0ed)\ub9c8\ub2e4 \ubaa9\ub85d\uc744 \uba54\ubaa8\ub9ac\uc5d0 \ub4e4\uace0 \uc788\uc73c\uba74, \uc608\uc804 \ucc3d\uc774 \uc800\uc7a5\ud560 \ub54c \ub2e4\ub978 \ucc3d\uc5d0\uc11c \uace0\uce5c \ub0b4\uc6a9\uc744 \ub36e\uc5b4\uc500 \u2192 \uc800\uc7a5 \ubc88\ud638\uac00 \ubc14\ub00c\uba74 \ub2e4\uc2dc \uc77d\uc74c
+  var cidx = null, cidxV = null;
   function cIndex() {
-    if (cidx) return cidx;
+    var v = gget('cidxv', 0);
+    if (cidx && v === cidxV) return cidx;
+    cidxV = v;
     cidx = gget('cidx', null);
     if (!cidx) { // \uc608\uc804 \ud615\uc2dd(\ud55c \ub369\uc5b4\ub9ac)\uc5d0\uc11c \uc62e\uae30\uae30
       cidx = {}; var old = gget('cache', null);
       if (old) { Object.keys(old).forEach(function (u) { var k = ckey(u); gset('c:' + k, old[u]); cidx[k] = { t: old[u].title, ts: Date.now() }; }); gdel('cache'); }
-      gset('cidx', cidx);
+      cidxSave(cidx);
     }
     return cidx;
   }
+  function cidxSave(I) { gset('cidx', I); cidxV = Date.now() + '.' + Math.random().toString(36).slice(2, 7); gset('cidxv', cidxV); cidx = I; }
   function cacheGet(u) { var k = ckey(u); return cIndex()[k] ? gget('c:' + k, null) : null; }
   // \uc608\uc804 \ubc84\uc804\uc774 \uad11\uace0 \ubb38\uad6c\ub098 '\ubcf8\ubb38 \uc5c6\uc74c' \uc548\ub0b4\ub97c \ubc88\uc5ed\ud574 \uc800\uc7a5\ud55c \ud654: \uc800\uc7a5\ub41c \ubc88\uc5ed\uc73c\ub85c \uce58\uc9c0 \uc54a\uc74c(\uc5f4\uba74 \ub2e4\uc2dc \ubc88\uc5ed)
   var BADV = /USD|VIP|\uad11\uace0|\ub85c\uadf8\uc778|\uacb0\uc81c|\ud68c\uc6d0\s*\uac00\uc785|\ubcf8\ubb38\uc774 \uc5c6|\u7ae0[\u7bc0\u8282]\u5167\u5bb9\u7f3a\u5931|\u7ae0\u8282\u5185\u5bb9\u7f3a\u5931|\ub0b4\uc6a9\uc774 (\uc5c6|\ub204\ub77d)|\uc874\uc7ac\ud558\uc9c0 \uc54a/;
@@ -416,7 +420,7 @@
     var all = v.lines.join('');
     return all.length < 700 && BADV.test(all);
   }
-  function cacheDel(u) { var k = ckey(u), I = cIndex(); delete I[k]; gdel('c:' + k); gset('cidx', I); }
+  function cacheDel(u) { var k = ckey(u), I = cIndex(); delete I[k]; gdel('c:' + k); cidxSave(I); }
   function cachePut(u, v, wid) {
     var k = ckey(u), I = cIndex();
     gset('c:' + k, v); I[k] = { t: v.title, ts: Date.now(), w: wid || (I[k] && I[k].w) };
@@ -424,7 +428,7 @@
     if (ks.length > CMAX) {
       ks.sort(function (a, b) { return I[a].ts - I[b].ts; }).slice(0, ks.length - CMAX).forEach(function (x) { delete I[x]; gdel('c:' + x); });
     }
-    gset('cidx', I);
+    cidxSave(I);
   }
   function cacheHas(u) { return cIndex()[ckey(u)]; }
   // ===================== \ubc88\uc5ed =====================
@@ -1912,6 +1916,7 @@
       // \uc0ac\uc774\ud2b8\ub9c8\ub2e4(\uac19\uc740 \uc791\ud488 \uc548\uc5d0\uc11c\ub3c4) '027', '\uc81c027\ud654', '\u7b2c27\u7ae0 \u2026'\ucc98\ub7fc \uc81c\ubaa9 \ubaa8\uc591\uc774 \uc81c\uac01\uac01\uc774\ub77c: \ubc88\ud638 \uce78 + \uc18c\uc81c\ubaa9\uc73c\ub85c \ud1b5\uc77c
       var num = chNum(c.t); if (num == null || num < 1) num = tr ? chNum(tr.t) : null;
       var subO = stripNum(c.t), subT = tr ? stripNum(tr.t) : '';
+      if (subT && subCnt[subT] >= 3) subT = ''; // \uc800\uc7a5\uc774 \ub2e4\ub978 \ucc3d\uc5d0 \ub36e\uc5ec\ub3c4 \ud654\uba74\uc5d0\ub294 \uc548 \ubcf4\uc774\uac8c
       var main = subT || subO || (num != null && num >= 1 ? (num | 0) + '\ud654' : c.t), small = subT && subO && subO !== subT ? subO : '';
       if (tr && !subT && !subO) noSub.push(c.u);
       var lab = num != null && num >= 1 && num % 1 === 0 ? num + '\ud654' : '';
