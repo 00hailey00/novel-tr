@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.5.0
+// @version      1.5.1
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -694,14 +694,16 @@
     '.pg .ph .ed{font-size:14px;color:var(--ac);padding:0 12px;height:44px}',
     '.pg .pb{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:16px 18px calc(30px + env(safe-area-inset-bottom))}',
     '.cont{display:flex;gap:14px;align-items:center;padding:14px;border-radius:18px;background:var(--card);border:1px solid var(--bd);width:100%;text-align:left;margin-bottom:22px}',
-    '.cover{flex:none;width:58px;aspect-ratio:3/4;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#fff}',
+    '.cover{flex:none;width:58px;aspect-ratio:3/4;border-radius:10px;display:flex;align-items:center;justify-content:center;border:1px solid color-mix(in srgb, var(--bd) 70%, transparent)}',
+    '.cover svg{width:52%;height:auto;display:block}',
     '.cont .ci{flex:1;min-width:0}',
     '.cont small{font-size:12px;color:var(--ac);font-weight:600}',
     '.cont b{display:block;font-size:16px;font-weight:700;margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.cont span{display:block;font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:18px 14px}',
     '.tile{position:relative;text-align:left;display:block;width:100%}',
-    '.tile .cover{width:100%;font-size:30px;border-radius:12px}',
+    '.tile .cover{width:100%;border-radius:12px}',
+    '.tile .cover svg{width:44%}',
     '.tile b{display:block;font-size:13.5px;font-weight:600;margin-top:8px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}',
     '.tile span{display:block;font-size:11.5px;color:var(--mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.tile .del{position:absolute;top:-8px;right:-8px;width:30px;height:30px;border-radius:50%;background:#e5534b;color:#fff;display:none;align-items:center;justify-content:center}',
@@ -1202,7 +1204,38 @@
     }
     return L;
   }
-  function coverColor(s) { var h = 0; s = String(s); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return 'hsl(' + (h % 360) + ' 42% 52%)'; }
+  // \ud45c\uc9c0: \uc791\ud488\ub9c8\ub2e4 \ub3c4\ud615 \ud558\ub098 + \ucc28\ubd84\ud55c \ub124 \uac00\uc9c0 \uc0c9 (\ubc30\uacbd\uc740 \ubaa8\ub450 \uac19\uc740 \uacc4\uc5f4, \ub3c4\ud615 \uc0c9\ub9cc \uc0b4\uc9dd \ube44\uce68)
+  var COV_C = ['#4ba67e', '#f5c95c', '#8fc1da', '#f07f5f'];
+  var COV_S = [
+    'M22 82V48a28 28 0 0 1 56 0v34H62V48a12 12 0 0 0-24 0v34z', // \uc544\uce58
+    'M50 8C53 38 62 47 92 50C62 53 53 62 50 92C47 62 38 53 8 50C38 47 47 38 50 8z', // \uac00\ub294 \ubc18\uc9dd\uc774
+    'M50 10Q56 44 90 50Q56 56 50 90Q44 56 10 50Q44 44 50 10z', // \ubcc4
+    'M50 16L88 82H12z', // \uc138\ubaa8
+    'M50 10C50 10 22 44 22 62a28 28 0 0 0 56 0C78 44 50 10 50 10z', // \ubb3c\ubc29\uc6b8
+    'M50 84C14 60 10 40 18 28c9-13 26-12 32 2c6-14 23-15 32-2c8 12 4 32-32 56z', // \ud558\ud2b8
+    'M50.0 12.0L58.2 34.9L81.3 27.1L68.5 47.8L89.0 60.9L64.9 63.8L67.4 88.0L50.0 71.0L32.6 88.0L35.1 63.8L11.0 60.9L31.5 47.8L18.7 27.1L41.8 34.9Z', // \uc77c\uacf1 \uac08\ub798 \ubcc4
+    'M14 50a36 16 0 1 0 72 0a36 16 0 1 0-72 0z', // \ub0a9\uc791\ud55c \ud0c0\uc6d0
+    'M24 50a26 34 0 1 0 52 0a26 34 0 1 0-52 0z' // \ub2ec\uac40
+  ];
+  function coverHash(s) { var h = 2166136261; s = String(s); for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } h ^= h >>> 15; h = Math.imul(h, 2246822507) >>> 0; h ^= h >>> 13; return h >>> 0; }
+  function coverColor(s) { var c = COV_C[Math.floor(coverHash(s) / 9) % COV_C.length]; return 'color-mix(in srgb, ' + c + ' 13%, var(--card))'; }
+  // \uc791\ud488\ub9c8\ub2e4 \ucc28\ub840 \ubc88\ud638\ub97c \ud55c \ubc88 \uc815\ud574 \uc800\uc7a5: \uc774\uc6c3\ud55c \uc791\ud488\ub07c\ub9ac \ub3c4\ud615\u00b7\uc0c9\uc774 \uacb9\uce58\uc9c0 \uc54a\uac8c (\ub3c4\ud615 9\uac00\uc9c0, \uc0c9 4\uac00\uc9c0\ub97c \ubc88\uac08\uc544)
+  function coverNo(id) {
+    var L = libAll(), w = L[id];
+    if (!w) return coverHash(id);
+    if (typeof w.cov === 'number') return w.cov;
+    var n = gget('covN', 0) || 0;
+    if (!n) { // \ucc98\uc74c: \uc774\ubbf8 \uc788\ub294 \uc791\ud488\ub4e4\uc5d0 \uc624\ub798\ub41c \uc21c\uc11c\ub300\ub85c \ubc88\ud638\ub97c \ub9e4\uae40
+      Object.keys(L).filter(function (k) { return k !== '__v2' && L[k] && typeof L[k].cov !== 'number'; })
+        .sort(function (a, b) { return (L[a].ts || 0) - (L[b].ts || 0); }).forEach(function (k) { L[k].cov = n++; });
+    } else w.cov = n++;
+    gset('lib', L); gset('covN', n);
+    return L[id].cov;
+  }
+  function coverHtml(id, style) {
+    var n = coverNo(id), c = COV_C[(n + Math.floor(n / 9)) % COV_C.length], d = COV_S[(n * 4) % COV_S.length];
+    return '<div class="cover" style="background:color-mix(in srgb, ' + c + ' 13%, var(--card))' + (style ? ';' + style : '') + '"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="' + d + '" fill="' + c + '" stroke="' + c + '" stroke-width="4" stroke-linejoin="round"/></svg></div>';
+  }
   function bookName(w) { return w.bookKo || w.book || '\uc774\ub984 \uc5c6\ub294 \uc791\ud488'; }
   var libTitleBusy = {};
   function libTouch(it) {
@@ -1299,7 +1332,7 @@
     if (pg.classList.contains('edit')) {
       pgB.innerHTML = '<p class="hint" style="color:var(--mut);font-size:13px;margin:0 2px 10px">\uc791\ud488\ub9c8\ub2e4 \ubc88\uc5ed\ub41c \ud654\ub97c TXT \ud30c\uc77c\ub85c \uc800\uc7a5\ud558\uac70\ub098 \uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6b8 \uc218 \uc788\uc5b4\uc694.</p>' +
         ws.map(function (w) {
-          return '<div class="row" style="gap:8px"><div class="cover" style="width:40px;font-size:17px;background:' + coverColor(w.id) + '">' + esc(bookName(w).charAt(0)) + '</div>' +
+          return '<div class="row" style="gap:8px">' + coverHtml(w.id, 'width:40px') +
             '<span class="rt">' + esc(bookName(w)) + '<small>' + esc(w.last.title) + '</small></span>' +
             '<button class="mini" data-act="export" data-id="' + esc(w.id) + '">TXT</button>' +
             '<button class="mini" style="color:#e5534b" data-act="libDel" data-id="' + esc(w.id) + '">\uc0ad\uc81c</button></div>';
@@ -1307,12 +1340,12 @@
       return;
     }
     var w0 = ws[0], h = '';
-    h += '<button class="cont" data-act="open" data-u="' + esc(w0.last.url) + '"><div class="cover" style="background:' + coverColor(w0.id) + '">' + esc(bookName(w0).charAt(0)) + '</div>' +
+    h += '<button class="cont" data-act="open" data-u="' + esc(w0.last.url) + '">' + coverHtml(w0.id) +
       '<div class="ci"><small>\uc774\uc5b4 \uc77d\uae30</small><b>' + esc(bookName(w0)) + '</b><span>' + esc(w0.last.title) + ' \u00b7 ' + relTime(w0.ts) + '</span></div>' + I.next + '</button>';
     if (ws.length > 1) {
       h += '<div class="grid">';
       ws.slice(1).forEach(function (w) {
-        h += '<button class="tile" data-act="open" data-u="' + esc(w.last.url) + '"><div class="cover" style="background:' + coverColor(w.id) + '">' + esc(bookName(w).charAt(0)) + '</div>' +
+        h += '<button class="tile" data-act="open" data-u="' + esc(w.last.url) + '">' + coverHtml(w.id) +
           '<b>' + esc(bookName(w)) + '</b><span>' + esc(w.last.title) + '</span><span>' + relTime(w.ts) + '</span>' +
           '<i class="del" data-act="libDel" data-id="' + esc(w.id) + '">' + I.x + '</i></button>';
       });
