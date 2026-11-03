@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.5.2
+// @version      1.5.3
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -716,8 +716,13 @@
     '.tagbox .tag{font-size:13.5px;padding:8px 12px;min-height:34px}',
     '.hd.wk{display:flex;align-items:center;gap:12px}',
     '.hd.wk h3{flex:1;min-width:0;font-size:17px;line-height:1.35}',
-    '.wide.danger{color:#e5534b}',
-    '.wide.danger.sure{background:#e5534b;color:#fff;border-color:#e5534b}',
+    '.wide.danger{color:var(--mut)}',
+    '.wide.danger.sure{background:var(--fg);color:var(--bg);border-color:var(--fg)}',
+    '.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -18px 14px;padding:2px 18px;scrollbar-width:none}',
+    '.chips::-webkit-scrollbar{display:none}',
+    '.chip{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--bd);font-size:13.5px;color:var(--mut);background:transparent}',
+    '.chip small{font-size:11.5px;opacity:.7}',
+    '.chip.on{color:var(--fg);font-weight:600;border-color:color-mix(in srgb, var(--tc, var(--fg)) 60%, var(--bd));background:color-mix(in srgb, var(--tc, var(--fg)) 22%, var(--card))}',
     '.lphint{font-size:12.5px;color:var(--mut);margin:0 2px 12px;text-align:center}',
     '.empty{text-align:center;color:var(--mut);padding:60px 20px;font-size:14px;line-height:1.7}',
     '.row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:54px;padding:10px 4px;border-bottom:1px solid color-mix(in srgb,var(--bd) 60%,transparent)}',
@@ -1215,7 +1220,7 @@
     return L;
   }
   // \ud45c\uc9c0: \uc791\ud488\ub9c8\ub2e4 \ub3c4\ud615 \ud558\ub098 + \ucc28\ubd84\ud55c \ub124 \uac00\uc9c0 \uc0c9 (\ubc30\uacbd\uc740 \ubaa8\ub450 \uac19\uc740 \uacc4\uc5f4, \ub3c4\ud615 \uc0c9\ub9cc \uc0b4\uc9dd \ube44\uce68)
-  var COV_C = ['#4ba67e', '#f5c95c', '#8fc1da', '#f07f5f'];
+  var COV_C = ['#8fc1da', '#9fc39a', '#b9acd9', '#e3c87f']; // \ud558\ub298 \u00b7 \uc5f0\ub450 \u00b7 \uc5f0\ubcf4\ub77c \u00b7 \uc5f0\ub178\ub791
   var COV_S = [
     'M22 82V48a28 28 0 0 1 56 0v34H62V48a12 12 0 0 0-24 0v34z', // \uc544\uce58
     'M50 8C53 38 62 47 92 50C62 53 53 62 50 92C47 62 38 53 8 50C38 47 47 38 50 8z', // \uac00\ub294 \ubc18\uc9dd\uc774
@@ -1339,8 +1344,13 @@
   // \ud0dc\uadf8: \uc791\ud488 \uc81c\ubaa9 \uc544\ub798 \uc791\uc740 \ud0c0\uc6d0. \uc0c9\uc740 \ud45c\uc9c0\uc640 \uac19\uc740 \ub124 \uac00\uc9c0 \uc911 \ud0dc\uadf8 \uae00\uc790\ub85c \uc815\ud574\uc9d0
   function tagHtml(t, del, id) {
     var c = COV_C[coverHash('tag:' + t) % COV_C.length];
-    return '<span class="tag" style="background:color-mix(in srgb, ' + c + ' 22%, var(--card));color:color-mix(in srgb, ' + c + ' 55%, var(--fg))"' +
+    return '<span class="tag" style="background:color-mix(in srgb, ' + c + ' 22%, var(--card));color:color-mix(in srgb, ' + c + ' 40%, var(--fg))"' +
       (del ? ' data-act="tagDel" data-id="' + esc(id) + '" data-tag="' + esc(t) + '"' : '') + '>' + esc(t) + (del ? '<b>\u00d7</b>' : '') + '</span>';
+  }
+  var libTag = null;
+  function tileHtml(w) {
+    return '<button class="tile" data-act="open" data-id="' + esc(w.id) + '" data-u="' + esc(w.last.url) + '">' + coverHtml(w.id) +
+      '<b>' + esc(bookName(w)) + '</b>' + tagsHtml(w) + '<span>' + esc(w.last.title) + '</span><span>' + relTime(w.ts) + '</span></button>';
   }
   function tagsHtml(w) { return w.tags && w.tags.length ? '<div class="tags">' + w.tags.map(function (t) { return tagHtml(t); }).join('') + '</div>' : ''; }
   // \ud45c\uc9c0\ub97c \uae38\uac8c \ub204\ub974\uba74: TXT \uc800\uc7a5 \u00b7 \ud0dc\uadf8 \u00b7 \uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6b0\uae30
@@ -1364,16 +1374,24 @@
   function renderLibBody() {
     var LA = libAll(), ws = Object.keys(LA).filter(function (k) { return k !== '__v2' && LA[k] && LA[k].last; }).map(function (k) { return LA[k]; }).sort(function (a, b) { return b.ts - a.ts; });
     if (!ws.length) { pgB.innerHTML = '<div class="empty">\uc544\uc9c1 \uc77d\uc740 \uc791\ud488\uc774 \uc5c6\uc5b4\uc694.<br>\uc18c\uc124 \ud398\uc774\uc9c0\uc5d0\uc11c \ubc88\uc5ed \ubc84\ud2bc\uc744 \ub204\ub974\uba74 \uc5ec\uae30\uc5d0 \uc313\uc5ec\uc694.</div><button class="btn" style="display:flex;margin:0 auto" data-act="libRestore">\ubc88\uc5ed \uae30\ub85d\uc5d0\uc11c \uc11c\uc7ac \ub2e4\uc2dc \ub9cc\ub4e4\uae30</button>'; return; }
-    var w0 = ws[0], h = '';
+    // \ud0dc\uadf8\ub85c \uace8\ub77c \ubcf4\uae30: \uc11c\uc7ac \uc704 \uce69 (\ud0dc\uadf8\uac00 \ud558\ub098\ub77c\ub3c4 \uc788\uc744 \ub54c\ub9cc)
+    var cnt = {}; ws.forEach(function (w) { (w.tags || []).forEach(function (t) { cnt[t] = (cnt[t] || 0) + 1; }); });
+    var tl = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a] || a.localeCompare(b); });
+    if (libTag && !cnt[libTag]) libTag = null;
+    var h = '';
+    if (tl.length) h += '<div class="chips"><button class="chip' + (libTag ? '' : ' on') + '" data-act="libTag" data-tag="">\uc804\uccb4</button>' +
+      tl.map(function (t) { var c = COV_C[coverHash('tag:' + t) % COV_C.length]; return '<button class="chip' + (libTag === t ? ' on' : '') + '" style="--tc:' + c + '" data-act="libTag" data-tag="' + esc(t) + '">' + esc(t) + '<small>' + cnt[t] + '</small></button>'; }).join('') + '</div>';
+    if (libTag) {
+      h += '<div class="grid">' + ws.filter(function (w) { return (w.tags || []).indexOf(libTag) >= 0; }).map(tileHtml).join('') + '</div>';
+      pgB.innerHTML = h; return;
+    }
+    var w0 = ws[0];
     if (!gget('lpSeen', 0)) h += '<p class="lphint">\ud45c\uc9c0\ub97c \uae38\uac8c \ub204\ub974\uba74 TXT \uc800\uc7a5 \u00b7 \ud0dc\uadf8 \u00b7 \uc9c0\uc6b0\uae30\ub97c \ud560 \uc218 \uc788\uc5b4\uc694</p>';
     h += '<button class="cont" data-act="open" data-id="' + esc(w0.id) + '" data-u="' + esc(w0.last.url) + '">' + coverHtml(w0.id) +
       '<div class="ci"><small>\uc774\uc5b4 \uc77d\uae30</small><b>' + esc(bookName(w0)) + '</b><span>' + esc(w0.last.title) + ' \u00b7 ' + relTime(w0.ts) + '</span>' + tagsHtml(w0) + '</div>' + I.next + '</button>';
     if (ws.length > 1) {
       h += '<div class="grid">';
-      ws.slice(1).forEach(function (w) {
-        h += '<button class="tile" data-act="open" data-id="' + esc(w.id) + '" data-u="' + esc(w.last.url) + '">' + coverHtml(w.id) +
-          '<b>' + esc(bookName(w)) + '</b>' + tagsHtml(w) + '<span>' + esc(w.last.title) + '</span><span>' + relTime(w.ts) + '</span></button>';
-      });
+      ws.slice(1).forEach(function (w) { h += tileHtml(w); });
       h += '</div>';
     }
     h += '<button class="btn" style="display:flex;margin:34px auto 0;font-size:13px;min-height:44px;color:var(--mut)" data-act="libRestore">\ubc88\uc5ed \uae30\ub85d\uc5d0\uc11c \uc11c\uc7ac \ub2e4\uc2dc \ub9cc\ub4e4\uae30</button>';
@@ -1579,6 +1597,7 @@
       if (t.classList.contains('sure')) { act('libDel', t); return; }
       t.classList.add('sure'); t.innerHTML = I.x + '\ud55c \ubc88 \ub354 \ub204\ub974\uba74 \uc9c0\uc6cc\uc694'; buzz(); return;
     }
+    if (name === 'libTag') { libTag = t.dataset.tag || null; renderLibBody(); pgB.scrollTop = 0; return; }
     if (name === 'tagAdd') { addTag(t.dataset.id, pn.querySelector('.tagin')); return; }
     if (name === 'tagDel') { var L3 = libAll(), w3 = L3[t.dataset.id]; if (w3 && w3.tags) { w3.tags = w3.tags.filter(function (x) { return x !== t.dataset.tag; }); gset('lib', L3); renderLibBody(); openWork(t.dataset.id); } return; }
     if (name === 'open') { openChapter(t.dataset.u, pageMode === 'lib' ? 'lib' : 'toc'); return; }
