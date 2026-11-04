@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.7.6
+// @version      1.7.7
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -850,8 +850,8 @@
     '.grp p.tr.live{animation:none}',
     '.app.dlg1 .dq{color:color-mix(in srgb,var(--ac) 72%,var(--fg))}',
     '.app.dlg1 .dq.th{color:color-mix(in srgb,var(--ac) 45%,var(--fg));font-style:italic}',
-    '.app.dlg2 .dq{background:linear-gradient(transparent 10%,var(--hl) 10%,var(--hl) 95%,transparent 95%);border-radius:3px;padding:0 2px;margin:0 -2px;-webkit-box-decoration-break:clone;box-decoration-break:clone}',
-    '.app.dlg2 .dq.th{background:linear-gradient(transparent 10%,var(--hl2) 10%,var(--hl2) 95%,transparent 95%)}',
+    '.app.dlg2 .dq{background:var(--hl);color:var(--hlfg);border-radius:3px;padding:.14em 2px;margin:0 -2px;-webkit-box-decoration-break:clone;box-decoration-break:clone}',
+    '.app.dlg2 .dq.th{background:var(--hl2)}',
     '.app.dk .wrap{font-weight:370;-webkit-font-smoothing:antialiased}',
     '.app.dk .cht{font-weight:600}',
     '.grp p.hold{background:color-mix(in srgb,var(--ac) 12%,transparent)}',
@@ -1103,18 +1103,22 @@
     function f(n) { var k = (n + h * 12) % 12, a = s * Math.min(l, 1 - l); return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); }
     return [f(0), f(8), f(4)];
   }
-  function hlColor(t, base) {
-    var bg = hx(t.bg), fg = hx(t.fg), hue = toHsl(hx(base))[0], L0 = toHsl(bg)[2], need = Math.max(4.5, ctr(fg, bg) * 0.8), c = null;
-    var S = t.dark ? 0.38 : 0.55, cap = t.dark ? 0.11 : 0.13;
-    for (var d = cap; d >= 0.03; d -= 0.005) { c = fromHsl(hue, S, Math.max(0, Math.min(1, t.dark ? L0 + d : L0 - d))); if (ctr(fg, c) >= need) break; }
-    return 'rgb(' + c.map(function (v) { return Math.round(v * 255); }).join(',') + ')';
+  // \ubc1d\uace0(\uba85\ub3c4) \uc120\uba85\ud55c(\ucc44\ub3c4) \ud615\uad11\ud39c + \uadf8 \uc704 \uae00\uc790\ub294 \uc9c4\ud558\uac8c (\ubc1d\uc740 \ud14c\ub9c8\ub294 \ud14c\ub9c8 \uae00\uc790\uc0c9\uc744 \ub354 \uc9c4\ud558\uac8c, \uc5b4\ub450\uc6b4 \ud14c\ub9c8\ub294 \uc5b4\ub450\uc6b4 \uae00\uc790)
+  function rgbs(c) { return 'rgb(' + c.map(function (v) { return Math.round(v * 255); }).join(',') + ')'; }
+  function hlSet(t) {
+    var hue = toHsl(hx(t.ac))[0], fg = hx(t.fg);
+    var hl = t.dark ? fromHsl(hue, 0.55, 0.66) : fromHsl(hue, 0.9, 0.82), hl2 = t.dark ? fromHsl(hue, 0.28, 0.62) : fromHsl(hue, 0.45, 0.86);
+    var ink = t.dark ? hx(t.bg) : fg;
+    for (var k = 0; k < 10 && (ctr(ink, hl) < 8 || ctr(ink, hl2) < 8); k++) ink = ink.map(function (v) { return v * 0.8; }); // \ucda9\ubd84\ud788 \ub610\ub837\ud574\uc9c8 \ub54c\uae4c\uc9c0 \uae00\uc790\ub97c \uc5b4\ub461\uac8c
+    return { '--hl': rgbs(hl), '--hl2': rgbs(hl2), '--hlfg': rgbs(ink) };
   }
   function applyPrefs() {
     var t = THEMES[themeKey()];
     var F = (prefs.font === 'custom' && customFont()) || FONTS[prefs.font] || FONTS.pretendard; loadFont(prefs.font); loadFont('pretendard');
-    var v = { '--bg': t.bg, '--fg': t.fg, '--mut': t.mut, '--card': t.card, '--bd': t.bd, '--ac': t.ac, '--hl': hlColor(t, t.ac), '--hl2': hlColor(t, t.mut), '--font': F.f,
+    var v = { '--bg': t.bg, '--fg': t.fg, '--mut': t.mut, '--card': t.card, '--bd': t.bd, '--ac': t.ac, '--font': F.f,
       '--ui': FONTS.pretendard.f, '--fs': prefs.fs + 'px', '--lh': prefs.lh, '--ps': prefs.ps + 'em', '--mw': prefs.mw + 'px',
       '--pad': prefs.pad + 'px', '--ind': prefs.ind ? '1em' : '0', '--ta': prefs.just ? 'justify' : 'left', '--wb': prefs.just ? 'normal' : 'keep-all' }; // \uc591\ucabd \uc815\ub82c\uc740 \uae00\uc790 \ub2e8\uc704 \uc904\ubc14\uafc8\uc774\ub77c\uc57c \ub744\uc5b4\uc4f0\uae30\uac00 \ubc8c\uc5b4\uc9c0\uc9c0 \uc54a\uc74c
+    var hs = hlSet(t); Object.keys(hs).forEach(function (k) { v[k] = hs[k]; });
     Object.keys(v).forEach(function (k) { app.style.setProperty(k, v[k]); });
     app.classList.toggle('dlg1', +prefs.dlg === 1); app.classList.toggle('dlg2', +prefs.dlg === 2);
     app.classList.toggle('dk', !!t.dark); // \uc5b4\ub450\uc6b4 \ud14c\ub9c8: \uae00\uc790\ub97c \uc0b4\uc9dd \uac00\ub298\uac8c (\ubc1d\uc740 \uae00\uc528\uac00 \ubc88\uc838 \ubcf4\uc774\ub294 \uac83 \uc904\uc784)
