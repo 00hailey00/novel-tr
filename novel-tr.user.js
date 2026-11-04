@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.7.7
+// @version      1.7.8
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -740,10 +740,11 @@
     ['lh', '\uc904 \uac04\uaca9', 0.05, 1.3, 2.6, function (v) { return v.toFixed(2); }],
     ['ps', '\ubb38\ub2e8 \uac04\uaca9', 0.1, 0, 2.4, function (v) { return v.toFixed(1); }],
     ['pad', '\uc88c\uc6b0 \uc5ec\ubc31', 2, 8, 60, function (v) { return v + 'px'; }],
-    ['mw', '\ubcf8\ubb38 \ud3ed', 20, 400, 1000, function (v) { return v + 'px'; }]
+    ['mw', '\ubcf8\ubb38 \ud3ed', 20, 400, 1000, function (v) { return v + 'px'; }],
+    ['hla', '\ud615\uad11\ud39c \uc9c4\ud558\uae30', 10, 20, 100, function (v) { return v + '%'; }]
   ];
   var PK = 'nvtrPrefs';
-  var DEF = { theme: 'auto', mode: '', dayT: 'light', nightT: 'dark', pins: [], font: 'pretendard', fontCustom: '', just: 1, dlg: 0, fs: 18, lh: 1.8, ps: 0.9, mw: 680, pad: 24, ind: 0, auto: 1, pre: 1, ts: 0, v: 2 };
+  var DEF = { theme: 'auto', mode: '', dayT: 'light', nightT: 'dark', pins: [], font: 'pretendard', fontCustom: '', just: 1, dlg: 0, hla: 50, fs: 18, lh: 1.8, ps: 0.9, mw: 680, pad: 24, ind: 0, auto: 1, pre: 1, ts: 0, v: 2 };
   function fill(p) {
     p = p || {}; Object.keys(DEF).forEach(function (k) { if (p[k] == null) p[k] = DEF[k]; });
     if (!p.mode) { // \uc608\uc804 \uc124\uc815(\ud14c\ub9c8 \ud558\ub098)\uc744 \ub0ae/\ubc24 \ubc29\uc2dd\uc73c\ub85c \uc62e\uae40
@@ -1103,14 +1104,18 @@
     function f(n) { var k = (n + h * 12) % 12, a = s * Math.min(l, 1 - l); return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); }
     return [f(0), f(8), f(4)];
   }
-  // \ubc1d\uace0(\uba85\ub3c4) \uc120\uba85\ud55c(\ucc44\ub3c4) \ud615\uad11\ud39c + \uadf8 \uc704 \uae00\uc790\ub294 \uc9c4\ud558\uac8c (\ubc1d\uc740 \ud14c\ub9c8\ub294 \ud14c\ub9c8 \uae00\uc790\uc0c9\uc744 \ub354 \uc9c4\ud558\uac8c, \uc5b4\ub450\uc6b4 \ud14c\ub9c8\ub294 \uc5b4\ub450\uc6b4 \uae00\uc790)
-  function rgbs(c) { return 'rgb(' + c.map(function (v) { return Math.round(v * 255); }).join(',') + ')'; }
-  function hlSet(t) {
-    var hue = toHsl(hx(t.ac))[0], fg = hx(t.fg);
-    var hl = t.dark ? fromHsl(hue, 0.55, 0.66) : fromHsl(hue, 0.9, 0.82), hl2 = t.dark ? fromHsl(hue, 0.28, 0.62) : fromHsl(hue, 0.45, 0.86);
-    var ink = t.dark ? hx(t.bg) : fg;
-    for (var k = 0; k < 10 && (ctr(ink, hl) < 8 || ctr(ink, hl2) < 8); k++) ink = ink.map(function (v) { return v * 0.8; }); // \ucda9\ubd84\ud788 \ub610\ub837\ud574\uc9c8 \ub54c\uae4c\uc9c0 \uae00\uc790\ub97c \uc5b4\ub461\uac8c
-    return { '--hl': rgbs(hl), '--hl2': rgbs(hl2), '--hlfg': rgbs(ink) };
+  // \ud615\uad11\ud39c: \ud14c\ub9c8 \uac15\uc870\uc0c9 \uacc4\uc5f4\uc758 \ubc1d\uc740 \uc0c9\uc744 '\ud615\uad11\ud39c \uc9c4\ud558\uae30'\ub9cc\ud07c \ube44\uce58\uac8c \uae54\uace0, \uadf8 \uc704 \uae00\uc790\ub294 \ub610\ub837\ud55c \ucabd(\ud14c\ub9c8 \uae00\uc790\uc0c9 \ub610\ub294 \uc5b4\ub450\uc6b4 \uc0c9)\uc73c\ub85c
+  function rgbs(c, a) { return 'rgba(' + c.map(function (v) { return Math.round(v * 255); }).join(',') + ',' + (a == null ? 1 : a) + ')'; }
+  function hlSet(t, pct) {
+    var a = Math.max(0.1, Math.min(1, (pct == null ? 50 : pct) / 100)), hue = toHsl(hx(t.ac))[0], bg = hx(t.bg), fg = hx(t.fg);
+    var green = hue > 0.17 && hue < 0.47 ? 0.65 : 1; // \ucd08\ub85d \uacc4\uc5f4\uc740 \ub208\uc5d0 \ub354 \uc138\uac8c \ubcf4\uc5ec\uc11c \ucc44\ub3c4\ub97c \ub0ae\ucda4
+    var hl = t.dark ? fromHsl(hue, 0.42 * green, 0.62) : fromHsl(hue, 0.62 * green, 0.8), hl2 = t.dark ? fromHsl(hue, 0.2, 0.6) : fromHsl(hue, 0.3, 0.84);
+    function blend(c) { return c.map(function (v, i) { return v * a + bg[i] * (1 - a); }); }
+    var b1 = blend(hl), b2 = blend(hl2), dark0 = t.dark ? bg : fg;
+    var ink = Math.min(ctr(fg, b1), ctr(fg, b2)) >= Math.min(ctr(dark0, b1), ctr(dark0, b2)) ? fg : dark0;
+    var up = lumi(ink) > lumi(b1);
+    for (var k = 0; k < 10 && (ctr(ink, b1) < 7 || ctr(ink, b2) < 7); k++) ink = ink.map(function (v) { return up ? v + (1 - v) * 0.2 : v * 0.8; });
+    return { '--hl': rgbs(hl, a), '--hl2': rgbs(hl2, a), '--hlfg': rgbs(ink) };
   }
   function applyPrefs() {
     var t = THEMES[themeKey()];
@@ -1118,7 +1123,7 @@
     var v = { '--bg': t.bg, '--fg': t.fg, '--mut': t.mut, '--card': t.card, '--bd': t.bd, '--ac': t.ac, '--font': F.f,
       '--ui': FONTS.pretendard.f, '--fs': prefs.fs + 'px', '--lh': prefs.lh, '--ps': prefs.ps + 'em', '--mw': prefs.mw + 'px',
       '--pad': prefs.pad + 'px', '--ind': prefs.ind ? '1em' : '0', '--ta': prefs.just ? 'justify' : 'left', '--wb': prefs.just ? 'normal' : 'keep-all' }; // \uc591\ucabd \uc815\ub82c\uc740 \uae00\uc790 \ub2e8\uc704 \uc904\ubc14\uafc8\uc774\ub77c\uc57c \ub744\uc5b4\uc4f0\uae30\uac00 \ubc8c\uc5b4\uc9c0\uc9c0 \uc54a\uc74c
-    var hs = hlSet(t); Object.keys(hs).forEach(function (k) { v[k] = hs[k]; });
+    var hs = hlSet(t, prefs.hla); Object.keys(hs).forEach(function (k) { v[k] = hs[k]; });
     Object.keys(v).forEach(function (k) { app.style.setProperty(k, v[k]); });
     app.classList.toggle('dlg1', +prefs.dlg === 1); app.classList.toggle('dlg2', +prefs.dlg === 2);
     app.classList.toggle('dk', !!t.dark); // \uc5b4\ub450\uc6b4 \ud14c\ub9c8: \uae00\uc790\ub97c \uc0b4\uc9dd \uac00\ub298\uac8c (\ubc1d\uc740 \uae00\uc528\uac00 \ubc88\uc838 \ubcf4\uc774\ub294 \uac83 \uc904\uc784)
@@ -1138,12 +1143,13 @@
     var F = prefs.font === 'custom' ? { n: prefs.fontCustom || '\uc9c1\uc811 \uc785\ub825', f: (customFont() || {}).f } : (FONTS[prefs.font] || FONTS.pretendard);
     h += '<div class="lb">\uae00\uc790</div><div class="grpbox">' +
       '<button class="rowx" data-act="fontOpen"><span>\uae00\uaf34</span><span class="rv" style="font-family:' + esc(F.f || '') + '">' + esc(F.n) + I.next + '</span></button>';
-    STEPS.forEach(function (s) {
-      h += '<div class="rowx"><span>' + s[1] + '</span><div class="ctl"><button data-act="step" data-v="' + s[0] + '" data-d="-1" aria-label="' + s[1] + ' \uc904\uc774\uae30">\u2212</button><b data-k="' + s[0] + '"></b><button data-act="step" data-v="' + s[0] + '" data-d="1" aria-label="' + s[1] + ' \ub298\ub9ac\uae30">+</button></div></div>';
-    });
+    function stepRow(s) {
+      return '<div class="rowx"' + (s[0] === 'hla' ? ' data-only="dlg2"' : '') + '><span>' + s[1] + '</span><div class="ctl"><button data-act="step" data-v="' + s[0] + '" data-d="-1" aria-label="' + s[1] + ' \uc904\uc774\uae30">\u2212</button><b data-k="' + s[0] + '"></b><button data-act="step" data-v="' + s[0] + '" data-d="1" aria-label="' + s[1] + ' \ub298\ub9ac\uae30">+</button></div></div>';
+    }
+    STEPS.forEach(function (s) { if (s[0] !== 'hla') h += stepRow(s); });
     h += '<div class="rowx"><span>\uc815\ub82c</span><div class="seg"><button data-act="just" data-v="1">\uc591\ucabd</button><button data-act="just" data-v="0">\uc67c\ucabd</button></div></div>' +
       '<button class="rowx" data-act="ind"><span>\ub4e4\uc5ec\uc4f0\uae30</span><i class="tg" data-k="ind"></i></button>' +
-      '<div class="rowx"><span>\ub300\uc0ac \uac15\uc870</span><div class="seg"><button data-act="dlg" data-v="0">\ub054</button><button data-act="dlg" data-v="1">\uc0c9</button><button data-act="dlg" data-v="2">\ud615\uad11\ud39c</button></div></div></div>';
+      '<div class="rowx"><span>\ub300\uc0ac \uac15\uc870</span><div class="seg"><button data-act="dlg" data-v="0">\ub054</button><button data-act="dlg" data-v="1">\uc0c9</button><button data-act="dlg" data-v="2">\ud615\uad11\ud39c</button></div></div>' + stepRow(STEPS[STEPS.length - 1]) + '</div>';
     h += '<div class="lb">\uc77d\uae30</div><div class="grpbox">' +
       '<button class="rowx" data-act="autoNext"><span>\uc774\uc5b4 \ubcf4\uae30</span><i class="tg" data-k="auto"></i></button>' +
       '<div class="rowx"><span>\ubbf8\ub9ac \ubc88\uc5ed</span><div class="seg"><button data-act="pre" data-v="0">\ub054</button><button data-act="pre" data-v="1">\uc55e\ubd80\ubd84</button><button data-act="pre" data-v="2">\uc804\uccb4</button></div></div></div>';
@@ -1177,6 +1183,7 @@
     [].forEach.call(pn.querySelectorAll('[data-act=pre]'), function (b) { b.classList.toggle('on', +b.dataset.v === +prefs.pre); });
     [].forEach.call(pn.querySelectorAll('[data-act=just]'), function (b) { b.classList.toggle('on', +b.dataset.v === +prefs.just); });
     [].forEach.call(pn.querySelectorAll('[data-act=dlg]'), function (b) { b.classList.toggle('on', +b.dataset.v === +prefs.dlg); });
+    [].forEach.call(pn.querySelectorAll('[data-only=dlg2]'), function (r) { r.style.display = +prefs.dlg === 2 ? '' : 'none'; });
     [].forEach.call(pn.querySelectorAll('.tg'), function (g) { g.classList.toggle('on', !!prefs[g.dataset.k]); });
     STEPS.forEach(function (s) { var e = pn.querySelector('b[data-k=' + s[0] + ']'); if (e) e.textContent = s[5](prefs[s[0]]); });
   }
