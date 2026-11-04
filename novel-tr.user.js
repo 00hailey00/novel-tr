@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.7.8
+// @version      1.7.9
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -652,9 +652,9 @@
   // \ud14c\ub9c8: \ub0ae(\ubc1d\uc740) / \ubc24(\uc5b4\ub450\uc6b4). VS Code \ub4f1\uc5d0\uc11c \uc778\uae30 \uc788\ub294 \uc0c9 \uc870\ud569\uc744 \uc18c\uc124 \uc77d\uae30\uc5d0 \ub9de\uac8c \uae00\uc528 \ubc1d\uae30\ub97c \ub0ae\ucdb0 \ub2e4\ub4ec\uc74c
   var THEMES = {
     light: { n: '\ubc1d\uac8c', bg: '#fbfbfa', fg: '#1f2023', mut: '#8b8d93', card: '#ffffff', bd: '#e6e6e3', ac: '#3b6fe0' },
-    paper: { n: '\uc885\uc774', bg: '#f5efe2', fg: '#3d342a', mut: '#9a8d78', card: '#fbf7ee', bd: '#e2d8c3', ac: '#a35a2c' },
-    green: { n: '\uc5f0\ub450', bg: '#e6eedb', fg: '#26301f', mut: '#7c8a6c', card: '#eff5e7', bd: '#ccd9ba', ac: '#3b7a3a' },
-    sepia: { n: '\uc138\ud53c\uc544', bg: '#f1e7d0', fg: '#4a3b2a', mut: '#9c8a6e', card: '#f7efdc', bd: '#e0d2b4', ac: '#8a5a2b' },
+    paper: { n: '\uc885\uc774', bg: '#f5efe2', fg: '#3d342a', mut: '#9a8d78', card: '#fbf7ee', bd: '#e2d8c3', ac: '#a35a2c', hh: 205 },
+    green: { n: '\uc5f0\ub450', bg: '#e6eedb', fg: '#26301f', mut: '#7c8a6c', card: '#eff5e7', bd: '#ccd9ba', ac: '#3b7a3a', hh: 265 },
+    sepia: { n: '\uc138\ud53c\uc544', bg: '#f1e7d0', fg: '#4a3b2a', mut: '#9c8a6e', card: '#f7efdc', bd: '#e0d2b4', ac: '#8a5a2b', hh: 205 },
     solar: { n: '\uc194\ub77c\ub77c\uc774\uc988\ub4dc', bg: '#fdf6e3', fg: '#586e75', mut: '#93a1a1', card: '#fffbef', bd: '#eee8d5', ac: '#268bd2' },
     github: { n: '\uae43\ud5c8\ube0c', bg: '#ffffff', fg: '#24292f', mut: '#6e7781', card: '#f6f8fa', bd: '#d0d7de', ac: '#0969da' },
     latte: { n: '\ub77c\ud14c', bg: '#eff1f5', fg: '#4c4f69', mut: '#8c8fa1', card: '#e6e9ef', bd: '#ccd0da', ac: '#8839ef' },
@@ -1106,8 +1106,9 @@
   }
   // \ud615\uad11\ud39c: \ud14c\ub9c8 \uac15\uc870\uc0c9 \uacc4\uc5f4\uc758 \ubc1d\uc740 \uc0c9\uc744 '\ud615\uad11\ud39c \uc9c4\ud558\uae30'\ub9cc\ud07c \ube44\uce58\uac8c \uae54\uace0, \uadf8 \uc704 \uae00\uc790\ub294 \ub610\ub837\ud55c \ucabd(\ud14c\ub9c8 \uae00\uc790\uc0c9 \ub610\ub294 \uc5b4\ub450\uc6b4 \uc0c9)\uc73c\ub85c
   function rgbs(c, a) { return 'rgba(' + c.map(function (v) { return Math.round(v * 255); }).join(',') + ',' + (a == null ? 1 : a) + ')'; }
+  // hh: \ubc14\ud0d5\uacfc \uac15\uc870\uc0c9\uc774 \uac19\uc740 \uacc4\uc5f4\uc774\ub77c \ud615\uad11\ud39c\uc774 \ubb3b\ud788\ub294 \ud14c\ub9c8(\uc5f0\ub450, \uc885\uc774, \uc138\ud53c\uc544)\ub294 \ud615\uad11\ud39c \uc0c9\uc0c1\uc744 \ub530\ub85c \uc815\ud568
   function hlSet(t, pct) {
-    var a = Math.max(0.1, Math.min(1, (pct == null ? 50 : pct) / 100)), hue = toHsl(hx(t.ac))[0], bg = hx(t.bg), fg = hx(t.fg);
+    var a = Math.max(0.1, Math.min(1, (pct == null ? 50 : pct) / 100)), hue = t.hh != null ? t.hh / 360 : toHsl(hx(t.ac))[0], bg = hx(t.bg), fg = hx(t.fg);
     var green = hue > 0.17 && hue < 0.47 ? 0.65 : 1; // \ucd08\ub85d \uacc4\uc5f4\uc740 \ub208\uc5d0 \ub354 \uc138\uac8c \ubcf4\uc5ec\uc11c \ucc44\ub3c4\ub97c \ub0ae\ucda4
     var hl = t.dark ? fromHsl(hue, 0.42 * green, 0.62) : fromHsl(hue, 0.62 * green, 0.8), hl2 = t.dark ? fromHsl(hue, 0.2, 0.6) : fromHsl(hue, 0.3, 0.84);
     function blend(c) { return c.map(function (v, i) { return v * a + bg[i] * (1 - a); }); }
