@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.7.9
+// @version      1.8.0
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -744,7 +744,7 @@
     ['hla', '\ud615\uad11\ud39c \uc9c4\ud558\uae30', 10, 20, 100, function (v) { return v + '%'; }]
   ];
   var PK = 'nvtrPrefs';
-  var DEF = { theme: 'auto', mode: '', dayT: 'light', nightT: 'dark', pins: [], font: 'pretendard', fontCustom: '', just: 1, dlg: 0, hla: 50, fs: 18, lh: 1.8, ps: 0.9, mw: 680, pad: 24, ind: 0, auto: 1, pre: 1, ts: 0, v: 2 };
+  var DEF = { theme: 'auto', mode: '', dayT: 'light', nightT: 'dark', pins: [], font: 'pretendard', fontCustom: '', just: 1, dlg: 0, hla: 50, cardD: 'paper', fs: 18, lh: 1.8, ps: 0.9, mw: 680, pad: 24, ind: 0, auto: 1, pre: 1, ts: 0, v: 2 };
   function fill(p) {
     p = p || {}; Object.keys(DEF).forEach(function (k) { if (p[k] == null) p[k] = DEF[k]; });
     if (!p.mode) { // \uc608\uc804 \uc124\uc815(\ud14c\ub9c8 \ud558\ub098)\uc744 \ub0ae/\ubc24 \ubc29\uc2dd\uc73c\ub85c \uc62e\uae40
@@ -827,7 +827,9 @@
     back: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>',
     redo: '<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>',
     undo: '<svg viewBox="0 0 24 24"><path d="M4 11a8 8 0 1 1 2.3 5.7M4 4v7h7"/></svg>',
-    copy: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>'
+    copy: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>',
+    search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>',
+    img: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-5-5-8.5 8"/></svg>'
   };
 
   var css = [
@@ -993,6 +995,20 @@
     '.row .rt{flex:1;min-width:0;font-size:15px;line-height:1.4}',
     '.row .rn{font-style:normal;font-weight:600;margin-right:8px;font-variant-numeric:tabular-nums}',
     '.row:not(.cur) .rn{color:color-mix(in srgb,var(--fg) 70%,var(--mut))}',
+    '.srch{position:sticky;top:-16px;z-index:1;margin:-16px -18px 0;padding:12px 18px 10px;background:var(--bg);border-bottom:1px solid color-mix(in srgb,var(--bd) 60%,transparent)}',
+    '.srch input{width:100%;box-sizing:border-box;min-height:46px;padding:0 14px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font:16px var(--ui);outline:none}',
+    '.srch input:focus{border-color:var(--ac)}',
+    '.scnt{font-size:12.5px;color:var(--mut);margin:12px 2px 4px}',
+    '.sch{font-size:13px;font-weight:700;color:var(--fg);margin:18px 2px 6px}',
+    '.shit{display:block;width:100%;text-align:left;font-size:14.5px;line-height:1.6;color:var(--fg);padding:10px 2px;border-bottom:1px solid color-mix(in srgb,var(--bd) 60%,transparent)}',
+    '.shit mark{background:color-mix(in srgb,var(--ac) 22%,transparent);color:inherit;border-radius:3px;padding:0 1px}',
+    'p.hit{background:color-mix(in srgb,var(--ac) 14%,transparent);border-radius:6px;transition:background 1.2s}',
+    '.cdv{margin:4px 0 12px;border-radius:12px;overflow:hidden;border:1px solid var(--bd);max-height:52vh;overflow-y:auto}',
+    '.cdv canvas{display:block;width:100%;height:auto}',
+    '.cdr{display:flex;gap:8px;margin-top:10px}',
+    '.cdr button{flex:1;min-height:42px;border-radius:12px;border:1px solid var(--bd);font-size:13.5px}',
+    '.cdr button:disabled{opacity:.4}',
+    '.seg.cds{width:100%}', '.seg.cds button{flex:1}',
     '.tsub{display:block;width:100%;text-align:left;font-size:13px;color:var(--ac);padding:10px 2px;border-bottom:1px solid color-mix(in srgb,var(--bd) 60%,transparent)}',
     '.row .rt small{display:block;font-size:12px;color:var(--mut)}',
     '.row.read .rt{color:var(--mut)}',
@@ -1001,8 +1017,9 @@
     '.bdg{flex:none;font-size:11px;padding:3px 8px;border-radius:999px;background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--ac);font-weight:600}',
     '.tochd{position:sticky;top:-16px;z-index:1;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:-16px -18px 4px;padding:12px 18px 10px;background:var(--bg);border-bottom:1px solid color-mix(in srgb,var(--bd) 60%,transparent)}',
     '.tst{flex:1 1 100%;min-width:0;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut);white-space:nowrap}',
-    '.tst .trf{margin-left:auto;display:flex;align-items:center;gap:4px;min-height:32px;padding:0 4px 0 8px;font-size:13px;color:var(--ac)}',
+    '.tst .trf{display:flex;align-items:center;gap:4px;min-height:32px;padding:0 4px 0 8px;font-size:13px;color:var(--ac)}',
     '.tst .trf svg{width:16px;height:16px}',
+    '.tst .trf.ml{margin-left:auto}',
     '.seg.tj{flex:1 1 100%}',
     '.tst b{font-size:15px;color:var(--fg);font-weight:700}',
     '.seg.tj button{flex:1;padding:0 8px;display:flex;align-items:center;justify-content:center}',
@@ -1236,6 +1253,7 @@
     if (it && it.done && !p.classList.contains('src')) h += '<button class="wide pri" data-act="paraRetr">' + I.redo + '\uc774 \ubb38\ub2e8\ub9cc \ub2e4\uc2dc \ubc88\uc5ed</button>';
     if (hist) h += '<button class="wide" data-act="paraUndo">' + I.undo + '\uc774\uc804 \ubc88\uc5ed\uc73c\ub85c \ub418\ub3cc\ub9ac\uae30</button>';
     h += '<button class="wide" data-act="paraCopy">' + I.copy + '\ubcf5\uc0ac</button>';
+    if (it) h += '<button class="wide" data-act="card">' + I.img + '\uc0ac\uc9c4\uc73c\ub85c \uc800\uc7a5</button>';
     pn.innerHTML = h; pn.scrollTop = 0; showSheet();
   }
   function itemOf(node) { for (var i = 0; i < chapters.length; i++) if (chapters[i].sec.contains(node)) return chapters[i]; return null; }
@@ -1601,14 +1619,14 @@
   }
   // \ud654 \ud558\ub098\ub9cc \uc0c8\ub85c \uc5f4\uae30 (\uc11c\uc7ac \u00b7 \ubaa9\ucc28 \u00b7 \uc774\uc804 \ud654\uc5d0\uc11c)
   var viewGen = 0;
-  async function openChapter(url, from) {
+  async function openChapter(url, from, para) {
     var g0 = ++viewGen; appending = false;
     closePage(); closeSheet(); setUI(false);
     wrap.innerHTML = ''; chapters = []; tail.innerHTML = '<div class="spin">\ubd88\ub7ec\uc624\ub294 \uc911</div>'; sc.scrollTop = 0; curShown = -1;
     var ch = await prefetch(url);
     if (g0 !== viewGen) return; // \ub354 \ub098\uc911\uc5d0 \uc5f0 \ud654\uac00 \uc788\uc74c
     if (ch.err) { tail.innerHTML = ''; tail.appendChild(el('div', 'er', '\ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc5b4\uc694: ' + ch.err.message)); var b = el('button', 'btn pri', '\ub2e4\uc2dc \uc2dc\ub3c4'); b.dataset.act = 'open'; b.dataset.u = url; tail.appendChild(b); return; }
-    show(ch).then(function (it) { if (it && it.done && from === 'lib') restorePos(it); });
+    show(ch).then(function (it) { if (it && it.done && from === 'lib') restorePos(it); if (it && para != null) goPara(it, para); });
   }
 
   // ===================== \uc11c\uc7ac =====================
@@ -2009,12 +2027,141 @@
         (lab ? '<i class="rn">' + lab + '</i>' : '') + esc(subT || subO || (lab ? '' : c.t)) + (small ? '<small>' + esc(small) + '</small>' : '') + '</span>' +
         (isCur ? '<span class="bdg">\uc77d\ub294 \uc911</span>' : tr ? '<span class="bdg">\ubc88\uc5ed\ub428</span>' : '') + '</button>';
     });
-    pgB.innerHTML = '<div class="tochd"><div class="tst"><b>' + list.length + '\ud654</b><span>\uc77d\uc74c ' + readN + '</span><span>\ubc88\uc5ed ' + trN + '</span><button class="trf" data-act="tocRefresh">' + I.redo + '\uc0c8\ub85c\uace0\uce68</button></div>' +
+    pgB.innerHTML = '<div class="tochd"><div class="tst"><b>' + list.length + '\ud654</b><span>\uc77d\uc74c ' + readN + '</span><span>\ubc88\uc5ed ' + trN + '</span><button class="trf ml" data-act="search">' + I.search + '\uac80\uc0c9</button><button class="trf" data-act="tocRefresh">' + I.redo + '\uc0c8\ub85c\uace0\uce68</button></div>' +
       '<div class="seg tj"><button data-act="tocTop" aria-label="\ucc98\uc74c\uc73c\ub85c">' + I.up + '</button><button data-act="tocCur">\uc77d\ub358 \uacf3</button><button data-act="tocLastTr">\ubc88\uc5ed \ub05d</button><button data-act="tocEnd" aria-label="\ucd5c\uc2e0 \ud654\ub85c">' + I.down + '</button></div></div>' +
       (gap ? '<p class="tgap">' + gap[0] + (gap[1] > gap[0] ? '~' + gap[1] : '') + '\ud654\ub294 \uc0ac\uc774\ud2b8 \ubaa9\ucc28\uc5d0 \uc5c6\uc5b4\uc694</p>' : '') +
-      (noSub.length > 2 ? '<button class="tsub" data-act="subFind">\uc18c\uc81c\ubaa9\uc774 \uc5c6\ub294 \ud654 ' + noSub.length + '\uac1c, \uc6d0\ubcf8\uc5d0\uc11c \ucc3e\uc544\ubcf4\uae30</button>' : '') + rows.join('');
+      (noSub.length > 2 ? '<button class="tsub" data-act="subFind">\uc6d0\ubcf8\uc5d0\uc11c \uc18c\uc81c\ubaa9 \ucc3e\uae30 (' + noSub.length + '\ud654)</button>' : '') + rows.join('');
     tocNoSub = noSub;
     var c = pgB.querySelector('.row.cur'); if (c) pgB.scrollTop = c.offsetTop - pgB.clientHeight / 2;
+  }
+
+  // ===================== \uac80\uc0c9: \uc774 \uc791\ud488\uc5d0\uc11c \ubc88\uc5ed\ud574 \ub454 \ud654 \uc548\uc5d0\uc11c =====================
+  var sQ = '', sData = null;
+  function openSearch() {
+    var it = chapters[curIndex()] || lastItem(); if (!it) return;
+    var wid = it.ch.id, I0 = cIndex();
+    openPage('search', '\uac80\uc0c9'); edBtn.style.display = 'none';
+    sData = Object.keys(I0).filter(function (k) { return I0[k].w === wid; }).map(function (k) { return { u: k, t: I0[k].t || '', n: chNum(I0[k].t || ''), ts: I0[k].ts, L: null }; })
+      .sort(function (a, b) { return (a.n == null ? 1e9 : a.n) - (b.n == null ? 1e9 : b.n) || a.ts - b.ts; });
+    pgB.innerHTML = '<div class="srch"><input type="search" enterkeyhint="search" placeholder="\ubc88\uc5ed\ud574 \ub454 ' + sData.length + '\ud654\uc5d0\uc11c \ucc3e\uae30" autocomplete="off"></div><div class="sres"></div>';
+    var inp = pgB.querySelector('input'), tm = 0;
+    inp.value = sQ;
+    inp.addEventListener('input', function () { clearTimeout(tm); tm = setTimeout(function () { runSearch(inp.value); }, 220); });
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { clearTimeout(tm); runSearch(inp.value); inp.blur(); } });
+    if (sQ) runSearch(sQ); else setTimeout(function () { try { inp.focus(); } catch (e) { } }, 250);
+  }
+  function runSearch(q) {
+    var box = pgB.querySelector('.sres'); if (!box || pageMode !== 'search') return;
+    q = String(q || '').trim(); sQ = q;
+    if (!q) { box.innerHTML = ''; return; }
+    var ql = q.toLowerCase(), out = [], hits = 0, chs = 0, MAX = 300;
+    sData.forEach(function (c) {
+      if (hits >= MAX) return;
+      if (!c.L) { var v = cacheGet(c.u); c.L = v && v.lines && !isBadV(v) ? v.lines : []; }
+      var rows = [];
+      c.L.forEach(function (l, i) {
+        if (hits >= MAX) return;
+        var low = l.toLowerCase(), at = low.indexOf(ql);
+        if (at < 0) return;
+        var a = Math.max(0, at - 30), b = Math.min(l.length, at + q.length + 50);
+        var snip = (a > 0 ? '\u2026' : '') + esc(l.slice(a, at)) + '<mark>' + esc(l.slice(at, at + q.length)) + '</mark>' + esc(l.slice(at + q.length, b)) + (b < l.length ? '\u2026' : '');
+        rows.push('<button class="shit" data-act="sres" data-u="' + esc(c.u) + '" data-i="' + i + '">' + snip + '</button>'); hits++;
+      });
+      if (rows.length) { chs++; var st = stripNum(c.t); out.push('<div class="sch">' + (c.n != null && c.n >= 1 ? (c.n | 0) + '\ud654' : esc(c.t)) + (st ? ' ' + esc(st) : '') + '</div>' + rows.join('')); }
+    });
+    box.innerHTML = hits ? '<p class="scnt">' + chs + '\ud654\uc5d0\uc11c ' + hits + '\uacf3' + (hits >= MAX ? ' (\uc55e\ucabd ' + MAX + '\uacf3\ub9cc \ubcf4\uc5ec\uc694)' : '') + '</p>' + out.join('') : '<p class="scnt">\ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694</p>';
+  }
+  function goPara(it, i) {
+    var p = null; [].forEach.call(it.sec.querySelectorAll('p.tr'), function (x) { if (x._idx === +i) p = x; });
+    if (!p) return;
+    progScroll = Date.now();
+    sc.scrollTop = Math.max(0, sc.scrollTop + p.getBoundingClientRect().top - sc.getBoundingClientRect().top - sc.clientHeight / 3);
+    p.classList.add('hit'); setTimeout(function () { p.classList.remove('hit'); }, 2200);
+  }
+
+  // ===================== \ubb38\ub2e8\uc744 \uc0ac\uc9c4\uc73c\ub85c (\uc778\uc6a9 \uce74\ub4dc) =====================
+  var CARDS = {
+    paper: { n: '\uc885\uc774', bg: '#f3eee3', fg: '#3a3027', mut: '#9a8b76', ac: '#c9b99a', f: 'ridibatang' },
+    white: { n: '\ud770\uc0c9', bg: '#ffffff', fg: '#222326', mut: '#8d8f95', ac: '#d6d8dc', f: 'pretendard' },
+    ink: { n: '\uba39\uc0c9', bg: '#1f2023', fg: '#e2dfd8', mut: '#8a877f', ac: '#4a4b50', f: 'maruburi' },
+    sky: { n: '\ud558\ub298', bg: '#e4ecf3', fg: '#243241', mut: '#7a8999', ac: '#b9c9d9', f: 'pretendard' }
+  };
+  var card = null;
+  function openCard(p) {
+    var it = itemOf(p); if (!it) return;
+    var ps = [].slice.call(it.sec.querySelectorAll('p.tr,p.src')), i = ps.indexOf(p);
+    card = { it: it, ps: ps, a: i, b: i };
+    if (!CARDS[prefs.cardD]) prefs.cardD = 'paper';
+    pn.dataset.mode = 'card';
+    var h = '<div class="grab"></div><div class="hd"><h3>\uc0ac\uc9c4\uc73c\ub85c \uc800\uc7a5</h3><button class="x" data-act="close" aria-label="\ub2eb\uae30">' + I.x + '</button></div>' +
+      '<div class="cdv"><canvas></canvas></div><div class="seg cds">' +
+      Object.keys(CARDS).map(function (k) { return '<button data-act="cardD" data-v="' + k + '">' + CARDS[k].n + '</button>'; }).join('') + '</div>' +
+      '<div class="cdr"><button data-act="cardAdd" data-d="-1">\uc55e \ubb38\ub2e8 \ub354\ud558\uae30</button><button data-act="cardAdd" data-d="1">\ub4a4 \ubb38\ub2e8 \ub354\ud558\uae30</button><button data-act="cardOne">\uc774 \ubb38\ub2e8\ub9cc</button></div>' +
+      '<button class="wide pri" data-act="cardSave">' + I.dl + '\uc0ac\uc9c4 \uc800\uc7a5</button>' +
+      (navigator.canShare ? '<button class="wide" data-act="cardShare">\uacf5\uc720</button>' : '');
+    pn.innerHTML = h; pn.scrollTop = 0; showSheet();
+    drawCard();
+  }
+  function cardText() { return card.ps.slice(card.a, card.b + 1).map(function (x) { return x.textContent.trim(); }).filter(Boolean); }
+  function wrapText(ctx, text, w) {
+    var out = [], line = '';
+    text.split(/(\s+)/).forEach(function (tok) {
+      if (!tok) return;
+      if (ctx.measureText(line + tok).width <= w) { line += tok; return; }
+      if (/^\s+$/.test(tok)) { out.push(line); line = ''; return; }
+      if (line.trim()) { out.push(line); line = ''; }
+      if (ctx.measureText(tok).width <= w) { line = tok; return; }
+      for (var j = 0; j < tok.length; j++) { if (ctx.measureText(line + tok[j]).width > w) { out.push(line); line = ''; } line += tok[j]; }
+    });
+    if (line.trim()) out.push(line);
+    return out.map(function (l) { return l.trim(); });
+  }
+  async function drawCard() {
+    if (!card) return;
+    var D = CARDS[prefs.cardD] || CARDS.paper, F = FONTS[D.f] || FONTS.pretendard, cv = pn.querySelector('.cdv canvas'); if (!cv) return;
+    [].forEach.call(pn.querySelectorAll('[data-act=cardD]'), function (b) { b.classList.toggle('on', b.dataset.v === prefs.cardD); });
+    var bp = pn.querySelector('[data-act=cardAdd][data-d="-1"]'), bn = pn.querySelector('[data-act=cardAdd][data-d="1"]'), bo = pn.querySelector('[data-act=cardOne]');
+    var len = cardText().join('').length;
+    if (bp) bp.disabled = card.a <= 0 || len > 900; if (bn) bn.disabled = card.b >= card.ps.length - 1 || len > 900; if (bo) bo.disabled = card.a === card.b;
+    loadFont(D.f); loadFont('pretendard');
+    try { await Promise.race([Promise.all([document.fonts.load('400 40px ' + F.f), document.fonts.load('700 30px ' + FONTS.pretendard.f)]), new Promise(function (ok) { setTimeout(ok, 2500); })]); } catch (e) { }
+    if (!card) return;
+    var W = 1080, P = 116, TW = W - P * 2, ctx = cv.getContext('2d'), paras = cardText();
+    var w0 = libAll()[card.it.ch.id] || {}, book = bookName(w0), tp = titleParts(card.it.title || ''), chap = (tp.label ? tp.label + ' ' : '') + (tp.name || '');
+    var fs = 46, lines, lh, gap, H;
+    for (; fs >= 30; fs -= 2) {
+      ctx.font = '400 ' + fs + 'px ' + F.f; lh = Math.round(fs * 1.75); gap = Math.round(fs * 0.9);
+      lines = paras.map(function (t) { return wrapText(ctx, t, TW); });
+      var th = lines.reduce(function (s, l) { return s + l.length * lh; }, 0) + gap * (paras.length - 1);
+      H = P + 120 + th + 110 + 96 + P;
+      if (H <= 1920) break;
+    }
+    H = Math.max(1080, Math.min(H, 2400));
+    cv.width = W; cv.height = H;
+    ctx.fillStyle = D.bg; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = D.ac; ctx.font = '700 150px ' + (FONTS.ridibatang || F).f; ctx.textBaseline = 'alphabetic'; ctx.fillText('\u201c', P - 10, P + 110);
+    var body = lines.reduce(function (s, l) { return s + l.length * lh; }, 0) + gap * (paras.length - 1);
+    var top = P + 150, bot = H - P - 96 - 70, y = Math.max(top, Math.round(top + (bot - top - body) / 2)); // \uc9e7\uc740 \uae00\uc740 \ub530\uc634\ud45c\uc640 \uc544\ub798 \uc791\ud488\uba85 \uc0ac\uc774 \uac00\uc6b4\ub370\uc5d0
+    ctx.fillStyle = D.fg; ctx.font = '400 ' + fs + 'px ' + F.f; ctx.textBaseline = 'top';
+    lines.forEach(function (ls, k) { ls.forEach(function (l) { ctx.fillText(l, P, y + (lh - fs) / 2); y += lh; }); if (k < lines.length - 1) y += gap; });
+    var fy = H - P - 96;
+    ctx.fillStyle = D.ac; ctx.fillRect(P, fy, 56, 3);
+    ctx.fillStyle = D.fg; ctx.font = '700 30px ' + FONTS.pretendard.f; ctx.fillText(fitW(ctx, book, TW), P, fy + 28);
+    ctx.fillStyle = D.mut; ctx.font = '400 26px ' + FONTS.pretendard.f; ctx.fillText(fitW(ctx, chap, TW), P, fy + 72);
+  }
+  function fitW(ctx, t, w) { t = String(t || ''); if (ctx.measureText(t).width <= w) return t; while (t.length > 1 && ctx.measureText(t + '\u2026').width > w) t = t.slice(0, -1); return t + '\u2026'; }
+  function cardBlob() { var cv = pn.querySelector('.cdv canvas'); return new Promise(function (ok) { cv.toBlob(function (b) { ok(b); }, 'image/png'); }); }
+  function cardName() { var w0 = libAll()[card.it.ch.id] || {}; return (bookName(w0) + ' ' + (card.it.title || '')).replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) + '.png'; }
+  async function saveCard(share) {
+    var b = await cardBlob(); if (!b) { toast('\uc0ac\uc9c4\uc744 \ub9cc\ub4e4\uc9c0 \ubabb\ud588\uc5b4\uc694'); return; }
+    var name = cardName();
+    if (share) {
+      try { var f = new File([b], name, { type: 'image/png' }); if (navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+      toast('\uc774 \ube0c\ub77c\uc6b0\uc800\ub294 \uc0ac\uc9c4 \uacf5\uc720\uac00 \uc548 \ub3fc\uc11c \uc800\uc7a5\ud560\uac8c\uc694');
+    }
+    var u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(u); }, 30000);
+    toast('\uc0ac\uc9c4\uc744 \uc800\uc7a5\ud588\uc5b4\uc694 (\ub2e4\uc6b4\ub85c\ub4dc \ud3f4\ub354)');
   }
 
   // ===================== \uc2a4\ud06c\ub864: \uc9c4\ud589 \u00b7 \ud604\uc7ac \ud654 \u00b7 \uba54\ub274 \uc228\uae40 \u00b7 \uc790\ub3d9 \uc774\uc5b4 \uc77d\uae30 =====================
@@ -2142,6 +2289,13 @@
     if (name === 'openReal') { // \uc774 \ud0ed\uc5d0\uc11c \uc6d0\ubcf8 \ud398\uc774\uc9c0\ub97c \uc9c1\uc811 \uc5f4\uace0(\uc0ac\uc774\ud2b8 \uc2a4\ud06c\ub9bd\ud2b8\u00b7\uc778\uc99d \ud1b5\uacfc) \uac70\uae30\uc11c \ub2e4\uc2dc \ubc88\uc5ed
       location.href = String(t.dataset.u).split('#')[0] + '#nvtr' + Date.now(); return;
     }
+    if (name === 'search') { openSearch(); return; }
+    if (name === 'sres') { openChapter(t.dataset.u, 'search', +t.dataset.i); return; }
+    if (name === 'card') { var cp = holdP; if (cp) openCard(cp); return; }
+    if (name === 'cardD') { prefs.cardD = t.dataset.v; savePrefs(); drawCard(); return; }
+    if (name === 'cardAdd') { if (card) { if (+t.dataset.d < 0) card.a = Math.max(0, card.a - 1); else card.b = Math.min(card.ps.length - 1, card.b + 1); drawCard(); } return; }
+    if (name === 'cardOne') { if (card) { var ci0 = card.ps.indexOf(holdP); card.a = card.b = ci0 < 0 ? card.a : ci0; drawCard(); } return; }
+    if (name === 'cardSave' || name === 'cardShare') { if (card) saveCard(name === 'cardShare'); return; }
     if (name === 'subFind') { t.disabled = true; findSubtitles(); return; }
     if (name === 'fixNames') { fixNames(t._item, t); return; }
     if (name === 'namesOpen') { openNames(t.dataset.id); return; }
