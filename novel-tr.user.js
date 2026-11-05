@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.8.5
+// @version      1.8.6
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -148,9 +148,15 @@
       return s.replace(/[\u200b-\u200f\u2060\ufeff\u00ad]/g, '').replace(/^[\s\u3000\u00a0]+|[\s\u3000\u00a0]+$/g, '');
     }).filter(function (s) { return /[^\s\p{P}\p{S}]/u.test(s) && !adLine(s); });
   }
+  // \uc0ac\uc774\ud2b8\uac00 \uc81c\ubaa9\uc744 \ub2a6\uac8c \ucc44\uc6b0\ub294 \ub3d9\uc548 \ubcf4\uc774\ub294 '\ubd88\ub7ec\uc624\ub294 \uc911' \ubb38\uad6c (\uc81c\ubaa9\uc73c\ub85c \uc4f0\uba74 \uc548 \ub428)
+  var LOADT = /^[\s(\uff08\[]*(\u8f09\u5165\u4e2d|\u8f7d\u5165\u4e2d|\u52a0\u8f09\u4e2d|\u52a0\u8f7d\u4e2d|\u8b80\u53d6\u4e2d|\u8bfb\u53d6\u4e2d|\u6b63\u5728\u52a0\u8f09|\u6b63\u5728\u52a0\u8f7d|loading|\ub85c\ub529\s*\uc911|\ubd88\ub7ec\uc624\ub294\s*\uc911|\uc77d\uc5b4\s*\uc624\ub294\s*\uc911)[\s.\u2026\u3002\uff0e\u00b7!\uff01)\uff09\]]*$/i;
   function titleOf(doc) {
     var h = doc.querySelector('h1') || doc.querySelector('.bookname h1, .title, h2');
     var t = (h ? h.textContent : doc.title).replace(/\s+/g, ' ').trim();
+    if (LOADT.test(t)) { // h1\uc774 \uc544\uc9c1 '\u8f09\u5165\u4e2d\u2026'\uc774\uba74 \ud398\uc774\uc9c0 \uc81c\ubaa9(<title>)\uc5d0\uc11c
+      var dt = (doc.title || '').split(/\s[-_|\uff5c\u2013\u2014]\s|_|\uff5c/)[0].replace(/\s+/g, ' ').trim();
+      t = dt && !LOADT.test(dt) ? dt : '';
+    }
     // \ud654 \uc81c\ubaa9\uc774 \ubc88\ud638\ubfd0\uc774\uba74(\uc608: "027") \ud398\uc774\uc9c0 \uc81c\ubaa9(<title>)\uc5d0 \uc18c\uc81c\ubaa9\uc774 \ub354 \uc788\ub294\uc9c0 \ud655\uc778
     var bare = t.replace(/[(\uff08]\s*\d+\s*\/\s*\d+\s*[)\uff09]/, '').trim();
     if (/^(\u7b2c\s*)?[\d\u96f6\u3007\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\u767e\u5343]{1,6}\s*[\u7ae0\u56de\u8282\u7bc0\u8bdd\u8a71]?$/.test(bare) && doc.title) {
@@ -454,7 +460,7 @@
   function cidxSave(I) { gset('cidx', I); cidxV = Date.now() + '.' + Math.random().toString(36).slice(2, 7); gset('cidxv', cidxV); cidx = I; }
   function cacheGet(u) { var k = ckey(u); return cIndex()[k] ? gget('c:' + k, null) : null; }
   // \uc608\uc804 \ubc84\uc804\uc774 \uad11\uace0 \ubb38\uad6c\ub098 '\ubcf8\ubb38 \uc5c6\uc74c' \uc548\ub0b4\ub97c \ubc88\uc5ed\ud574 \uc800\uc7a5\ud55c \ud654: \uc800\uc7a5\ub41c \ubc88\uc5ed\uc73c\ub85c \uce58\uc9c0 \uc54a\uc74c(\uc5f4\uba74 \ub2e4\uc2dc \ubc88\uc5ed)
-  var BADV = /USD|VIP|\uad11\uace0|\ub85c\uadf8\uc778|\uacb0\uc81c|\ud68c\uc6d0\s*\uac00\uc785|\ubcf8\ubb38\uc774 \uc5c6|\u7ae0[\u7bc0\u8282]\u5167\u5bb9\u7f3a\u5931|\u7ae0\u8282\u5185\u5bb9\u7f3a\u5931|\ub0b4\uc6a9\uc774 (\uc5c6|\ub204\ub77d)|\uc874\uc7ac\ud558\uc9c0 \uc54a/;
+  var BADV = /USD|VIP|\uad11\uace0|\ub85c\uadf8\uc778|\uacb0\uc81c|\ud68c\uc6d0\s*\uac00\uc785|\ubcf8\ubb38\uc774 \uc5c6|\u7ae0[\u7bc0\u8282]\u5167\u5bb9\u7f3a\u5931|\u7ae0\u8282\u5185\u5bb9\u7f3a\u5931|\ub0b4\uc6a9\uc774 (\uc5c6|\ub204\ub77d)|\uc874\uc7ac\ud558\uc9c0 \uc54a|\ub85c\ub529\s*\uc911|\ubd88\ub7ec\uc624\ub294\s*\uc911|\u8f09\u5165\u4e2d|\u52a0\u8f7d\u4e2d|\u52a0\u8f09\u4e2d/;
   function isBadV(v) {
     if (!v || !v.lines || !v.lines.length) return true;
     var all = v.lines.join('');
@@ -565,6 +571,10 @@
     var chunks = makeChunks(ch);
     var hit = cacheGet(ch.url);
     if (hit && isBadV(hit)) { cacheDel(ch.url); hit = null; }
+    if (hit && LOADT.test(stripNum(hit.title || '') || hit.title || '') && ch.title && !LOADT.test(ch.title)) { // \uc608\uc804\uc5d0 '\ub85c\ub529 \uc911'\uc744 \uc81c\ubaa9\uc73c\ub85c \uc800\uc7a5\ud55c \ud654
+      hit.title = ch.title; cachePut(ch.url, hit, ch.id);
+      (function (h0) { callApi('[\uc81c\ubaa9] ' + ch.title).then(function (o) { var t1 = (splitTitle(o.split(/\n+/), '').title || o.split(/\n+/)[0] || '').trim(); if (t1 && !LOADT.test(t1)) { h0.title = t1; cachePut(ch.url, h0, ch.id); chapters.forEach(function (c) { if (ckey(c.ch.url) === ckey(ch.url)) setTitle(c, t1); }); } }).catch(function () { }); })(hit);
+    }
     if (hit) hit = liftCached(ch.url, hit);
     if (hit && hit.lines && hit.lines.length) {
       if (hit.parts && hit.parts.length === chunks.length) {
@@ -1436,6 +1446,10 @@
       if (hl < 4 || (hl < 30 && ch.lines.join('').length < 60 && !ch.next && !ch.prev)) {
         var ee = new Error('\ubcf8\ubb38\uc744 \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud588\uc5b4\uc694. \uc0ac\uc774\ud2b8\uac00 \uc7a0\uc2dc \ub9c9\uc558\uac70\ub098 \uc778\uc99d \ud654\uba74\uc774 \ub5b4\uc744 \uc218 \uc788\uc5b4\uc694'); ee.empty = true; throw ee;
       }
+      if (!ch.title) { // \uc81c\ubaa9\uc744 \ubabb \uc77d\uc5c8\uc73c\uba74: \ub2e4\uc74c \ud654\ub85c \ubd88\ub7ec\uc628 \uacbd\uc6b0 \uc55e \ud654 \ubc88\ud638 + 1
+        var pv = asNext && chapters[chapters.length - 1], pn0 = pv ? chNum(pv.title || '') : null;
+        ch.title = pn0 != null && pn0 >= 1 && pn0 % 1 === 0 ? '\u7b2c' + (pn0 + 1) + '\u7ae0' : '';
+      }
       if (!ch.next) { var g = guessUrl(url, 'next'); if (g) { ch.next = g; ch.guessed = 1; } }
       if (!ch.prev) { var gp = guessUrl(url, 'prev'); if (gp) ch.prev = gp; }
       ch.fp = fpOf(ch.lines);
@@ -2002,6 +2016,7 @@
     list.forEach(function (c) { var tr0 = cacheHas(c.u), n0 = chNum(c.t); if (n0 != null && n0 >= 1) nums[n0] = 1; if (tr0 && tr0.t) { trT[tr0.t] = 1; var n1 = chNum(tr0.t); if (n1 != null && n1 >= 1) nums[n1] = 1; } });
     var I0 = cIndex(), extra = Object.keys(I0).filter(function (k) {
       if (I0[k].w !== it.ch.id || have[k] || trT[I0[k].t]) return false;
+      if (isBadV(gget('c:' + k, null))) return false; // \uad11\uace0\u00b7'\ub85c\ub529 \uc911' \uac19\uc740 \uc798\ubabb \uc800\uc7a5\ub41c \ubc88\uc5ed\uc740 \ubaa9\ucc28\uc5d0 \ub07c\uc6cc \ub123\uc9c0 \uc54a\uc74c
       var n2 = chNum(I0[k].t || ''); return !(n2 != null && nums[n2]);
     });
     var curHit = 0, curN = chNum(it.title || ''), curAlias = !have[ckey(it.ch.url)] && curN != null && nums[curN]; // \uc9c0\uae08 \ud654\uac00 \ubaa9\ucc28\uc5d0 \uc5c6\ub294 2\ucabd\uc774\uba74 \uac19\uc740 \ubc88\ud638 \uc904\uc744 '\uc77d\ub294 \uc911'\uc73c\ub85c
@@ -2030,12 +2045,13 @@
       // \uc0ac\uc774\ud2b8\ub9c8\ub2e4(\uac19\uc740 \uc791\ud488 \uc548\uc5d0\uc11c\ub3c4) '027', '\uc81c027\ud654', '\u7b2c27\u7ae0 \u2026'\ucc98\ub7fc \uc81c\ubaa9 \ubaa8\uc591\uc774 \uc81c\uac01\uac01\uc774\ub77c: \ubc88\ud638 \uce78 + \uc18c\uc81c\ubaa9\uc73c\ub85c \ud1b5\uc77c
       var num = chNum(c.t); if (num == null || num < 1) num = tr ? chNum(tr.t) : null;
       var subO = stripNum(c.t), subT = tr ? stripNum(tr.t) : '';
+      if (LOADT.test(subO)) subO = ''; if (LOADT.test(subT)) subT = '';
       if (subT && subCnt[subT] >= 3) subT = ''; // \uc800\uc7a5\uc774 \ub2e4\ub978 \ucc3d\uc5d0 \ub36e\uc5ec\ub3c4 \ud654\uba74\uc5d0\ub294 \uc548 \ubcf4\uc774\uac8c
       var main = subT || subO || (num != null && num >= 1 ? (num | 0) + '\ud654' : c.t), small = subT && subO && subO !== subT ? subO : '';
       if (tr && !subT && !subO) noSub.push(c.u);
       var lab = num != null && num >= 1 && num % 1 === 0 ? num + '\ud654' : '';
       return '<button class="row' + (isRead ? ' read' : '') + (isCur ? ' cur' : '') + (tr ? ' tr' : '') + '" data-act="open" data-u="' + esc(c.u) + '"><span class="rt">' +
-        (lab ? '<i class="rn">' + lab + '</i>' : '') + esc(subT || subO || (lab ? '' : c.t)) + (small ? '<small>' + esc(small) + '</small>' : '') + '</span>' +
+        (lab ? '<i class="rn">' + lab + '</i>' : '') + esc(subT || subO || (lab ? '' : LOADT.test(c.t) ? '\uc81c\ubaa9 \uc5c6\ub294 \ud654' : c.t)) + (small ? '<small>' + esc(small) + '</small>' : '') + '</span>' +
         (isCur ? '<span class="bdg">\uc77d\ub294 \uc911</span>' : tr ? '<span class="bdg">\ubc88\uc5ed\ub428</span>' : '') + '</button>';
     });
     pgB.innerHTML = '<div class="tochd"><div class="tst"><b>' + list.length + '\ud654</b><span>\uc77d\uc74c ' + readN + '</span><span>\ubc88\uc5ed ' + trN + '</span><button class="trf ml" data-act="search">' + I.search + '\uac80\uc0c9</button><button class="trf" data-act="tocRefresh">' + I.redo + '\uc0c8\ub85c\uace0\uce68</button></div>' +
