@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.8.0
+// @version      1.8.1
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -1008,7 +1008,9 @@
     '.cdr{display:flex;gap:8px;margin-top:10px}',
     '.cdr button{flex:1;min-height:42px;border-radius:12px;border:1px solid var(--bd);font-size:13.5px}',
     '.cdr button:disabled{opacity:.4}',
-    '.seg.cds{width:100%}', '.seg.cds button{flex:1}',
+    '.cds{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}',
+    '.cds button{min-height:38px;border-radius:10px;border:1px solid var(--bd);font-size:13px;color:var(--mut)}',
+    '.cds button.on{border-color:var(--ac);color:var(--fg);font-weight:600;background:color-mix(in srgb,var(--ac) 12%,var(--card))}',
     '.tsub{display:block;width:100%;text-align:left;font-size:13px;color:var(--ac);padding:10px 2px;border-bottom:1px solid color-mix(in srgb,var(--bd) 60%,transparent)}',
     '.row .rt small{display:block;font-size:12px;color:var(--mut)}',
     '.row.read .rt{color:var(--mut)}',
@@ -2080,11 +2082,99 @@
   }
 
   // ===================== \ubb38\ub2e8\uc744 \uc0ac\uc9c4\uc73c\ub85c (\uc778\uc6a9 \uce74\ub4dc) =====================
+  // ---- \ud48d\uacbd \ubc30\uacbd (\uc0ac\uc9c4\uc744 \uc4f0\uc9c0 \uc54a\uace0 \uadf8\ub54c\uadf8\ub54c \uadf8\ub9bc: \uae00\ub9c8\ub2e4 \uc870\uae08\uc529 \ub2e4\ub978 \ubaa8\uc591, \uac19\uc740 \uae00\uc774\uba74 \uac19\uc740 \ubaa8\uc591) ----
+  function rngOf(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function hashStr(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function vgrad(ctx, w, h, stops) { var g = ctx.createLinearGradient(0, 0, 0, h); stops.forEach(function (s) { g.addColorStop(s[0], s[1]); }); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); }
+  function softDot(ctx, x, y, r, col, a) { var g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(' + col + ',' + a + ')'); g.addColorStop(1, 'rgba(' + col + ',0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+  function lowLayer(W, H, k, draw) { var c = document.createElement('canvas'); c.width = Math.round(W / k); c.height = Math.round(H / k); var x = c.getContext('2d'); x.scale(1 / k, 1 / k); draw(x); return c; }
+  function putLow(ctx, low, W, H, blur) { ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; if (blur) ctx.filter = 'blur(' + blur + 'px)'; ctx.drawImage(low, -blur, -blur, W + blur * 2, H + blur * 2); ctx.restore(); }
+  function grain(ctx, W, H, amt, r) {
+    var d = ctx.getImageData(0, 0, W, H), p = d.data;
+    for (var i = 0; i < p.length; i += 4) { var n = (r() - 0.5) * amt; p[i] += n; p[i + 1] += n; p[i + 2] += n; }
+    ctx.putImageData(d, 0, 0);
+  }
+  var SCENES = {
+    // \ud587\ube5b\uc774 \ubc18\uc9dd\uc774\ub294 \ubb3c\uacb0
+    water: function (ctx, W, H, r) {
+      putLow(ctx, lowLayer(W, H, 6, function (x) {
+        vgrad(x, W, H, [[0, '#b9c6bd'], [0.45, '#cfd8cf'], [1, '#e6ebe3']]);
+        for (var i = 0; i < 26; i++) softDot(x, r() * W, r() * H, 120 + r() * 260, ['150,170,140', '120,150,150', '190,160,120', '170,190,170'][i % 4], 0.22);
+        for (var j = 0; j < 40; j++) { x.save(); x.translate(r() * W, H * (0.1 + r() * 0.9)); x.scale(1, 0.12 + r() * 0.1); softDot(x, 0, 0, 140 + r() * 220, '255,255,255', 0.35); x.restore(); }
+      }), W, H, 8);
+      var gx = 0.3 + r() * 0.3, gy = 0.55 + r() * 0.15;
+      function gs() { return (r() + r() + r() - 1.5) / 1.5; }
+      for (var k = 0; k < 700; k++) { // \ubc18\uc9dd\uc784: \ud574\uac00 \ube44\uce58\ub294 \uacf3\uc5d0 \ubab0\ub9ac\uace0, \uac00\uc7a5\uc790\ub9ac\ub85c \uac08\uc218\ub85d \ub4dc\ubb38\ub4dc\ubb38
+        var xx = W * (gx + gs() * 0.38), y = H * (gy + gs() * 0.22), near = Math.max(0, 1 - Math.hypot((xx / W - gx) / 0.4, (y / H - gy) / 0.25));
+        if (r() > 0.25 + near) continue;
+        var s0 = 0.4 + r() * r() * 3.2;
+        ctx.save(); ctx.translate(xx, y); ctx.scale(2 + r() * 5, 1); softDot(ctx, 0, 0, s0 * 3, '255,255,250', 0.35 + near * 0.6); ctx.restore();
+      }
+      softDot(ctx, W * 0.42, H * 0.62, W * 0.45, '255,255,250', 0.35);
+      ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(0, 0, W, H);
+      grain(ctx, W, H, 10, r);
+    },
+    // \ud574\uc9c8\ub158 \uad6c\ub984
+    cloud: function (ctx, W, H, r) {
+      putLow(ctx, lowLayer(W, H, 8, function (x) {
+        vgrad(x, W, H, [[0, '#9ea3b0'], [0.45, '#b8bac3'], [0.75, '#ddd5ca'], [1, '#e9dfd0']]);
+        function band(cx, cy, w, h, n, dark, a) { // \uc606\uc73c\ub85c \uae38\uac8c \ud37c\uc9c4 \uad6c\ub984: \ub0a9\uc791\ud55c \ub369\uc5b4\ub9ac\ub97c \uacb9\uccd0\uc11c
+          for (var i = 0; i < n; i++) {
+            var px = cx + (r() - 0.5) * w, py = cy + (r() - 0.5) * h * (1 - Math.abs(px - cx) / w);
+            x.save(); x.translate(px, py); x.scale(2.2 + r() * 1.5, 1); softDot(x, 0, 0, 30 + r() * 60, dark, a); x.restore();
+            x.save(); x.translate(px + 10, py - 26); x.scale(2, 1); softDot(x, 0, 0, 20 + r() * 40, '236,232,228', a * 0.6); x.restore();
+          }
+        }
+        band(W * (0.35 + r() * 0.2), H * (0.3 + r() * 0.08), W * 1.3, H * 0.22, 120, '118,122,138', 0.14);
+        band(W * (0.25 + r() * 0.2), H * (0.6 + r() * 0.06), W * 1.0, H * 0.1, 70, '112,116,132', 0.13);
+        for (var c = 0; c < 40; c++) softDot(x, W * (0.62 + r() * 0.45), H * (0.88 + r() * 0.14), 50 + r() * 90, '100,104,118', 0.2); // \uc544\ub798 \ubb49\uac8c\uad6c\ub984
+      }), W, H, 7);
+      grain(ctx, W, H, 34, r);
+    },
+    // \uc548\uac1c \ub080 \uc0b0
+    mist: function (ctx, W, H, r) {
+      vgrad(ctx, W, H, [[0, '#dde2e4'], [0.55, '#eceeec'], [1, '#e4e7e5']]);
+      function ridge(base, amp, rough) {
+        var n = 64, pts = [], i; for (i = 0; i <= n; i++) pts.push(0);
+        var step = n, sc = amp; pts[0] = (r() - 0.5) * amp; pts[n] = (r() - 0.5) * amp;
+        while (step > 1) { for (i = step / 2; i < n; i += step) pts[i] = (pts[i - step / 2] + pts[i + step / 2]) / 2 + (r() - 0.5) * sc; step /= 2; sc *= rough; }
+        return pts.map(function (v, i) { return [i / n * W, base + v]; });
+      }
+      var layers = [[0.5, '#c3ccd0', 260, 0.55, 3], [0.6, '#aab6bc', 220, 0.55, 2], [0.7, '#8e9ca4', 180, 0.52, 1], [0.84, '#7f8d95', 120, 0.5, 0]];
+      layers.forEach(function (L, li) {
+        var pts = ridge(H * L[0], L[2], L[3]);
+        var c = document.createElement('canvas'); c.width = W; c.height = H; var x = c.getContext('2d');
+        x.fillStyle = L[1]; x.beginPath(); x.moveTo(0, H); pts.forEach(function (p) { x.lineTo(p[0], p[1]); }); x.lineTo(W, H); x.closePath(); x.fill();
+        ctx.save(); if (L[4]) ctx.filter = 'blur(' + L[4] + 'px)'; ctx.drawImage(c, 0, 0); ctx.restore();
+        var g = ctx.createLinearGradient(0, H * (L[0] - 0.05), 0, H * (L[0] + 0.16)); g.addColorStop(0, 'rgba(240,242,241,0)'); g.addColorStop(1, 'rgba(240,242,241,' + (0.75 - li * 0.1) + ')');
+        ctx.fillStyle = g; ctx.fillRect(0, H * (L[0] - 0.05), W, H);
+      });
+      grain(ctx, W, H, 12, r);
+    },
+    // \ud750\ub9bf\ud55c \ube5b\ub9dd\uc6b8
+    bokeh: function (ctx, W, H, r) {
+      putLow(ctx, lowLayer(W, H, 4, function (x) {
+        vgrad(x, W, H, [[0, '#efe6da'], [0.5, '#e8d8d0'], [1, '#d8d2dc']]);
+        for (var i = 0; i < 12; i++) softDot(x, r() * W, r() * H, 200 + r() * 300, ['255,240,220', '240,210,200', '220,215,235'][i % 3], 0.35);
+      }), W, H, 10);
+      for (var j = 0; j < 46; j++) {
+        var x0 = r() * W, y0 = r() * H, rr = 24 + r() * 80, a = 0.12 + r() * 0.22, col = ['255,250,240', '255,236,214', '250,226,226', '236,232,250'][j % 4];
+        ctx.fillStyle = 'rgba(' + col + ',' + a + ')'; ctx.beginPath(); ctx.arc(x0, y0, rr, 0, 7); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,' + a * 0.8 + ')'; ctx.lineWidth = 2; ctx.stroke();
+      }
+      ctx.save(); ctx.filter = 'blur(3px)'; ctx.drawImage(ctx.canvas, 0, 0); ctx.restore();
+      grain(ctx, W, H, 10, r);
+    }
+  };
   var CARDS = {
     paper: { n: '\uc885\uc774', bg: '#f3eee3', fg: '#3a3027', mut: '#9a8b76', ac: '#c9b99a', f: 'ridibatang' },
     white: { n: '\ud770\uc0c9', bg: '#ffffff', fg: '#222326', mut: '#8d8f95', ac: '#d6d8dc', f: 'pretendard' },
     ink: { n: '\uba39\uc0c9', bg: '#1f2023', fg: '#e2dfd8', mut: '#8a877f', ac: '#4a4b50', f: 'maruburi' },
-    sky: { n: '\ud558\ub298', bg: '#e4ecf3', fg: '#243241', mut: '#7a8999', ac: '#b9c9d9', f: 'pretendard' }
+    sky: { n: '\ud558\ub298', bg: '#e4ecf3', fg: '#243241', mut: '#7a8999', ac: '#b9c9d9', f: 'pretendard' },
+    water: { n: '\ubb3c\uacb0', scene: 'water', fg: '#26302c', mut: '#56625c', ac: '#7d8c84', f: 'maruburi' },
+    cloud: { n: '\uad6c\ub984', scene: 'cloud', fg: '#262a33', mut: '#4f5461', ac: '#7a7f8d', f: 'ridibatang' },
+    mist: { n: '\uc548\uac1c', scene: 'mist', fg: '#2a3237', mut: '#56626a', ac: '#8b979e', f: 'ridibatang' },
+    bokeh: { n: '\ube5b\ub9dd\uc6b8', scene: 'bokeh', fg: '#3a3036', mut: '#75666c', ac: '#b9a3a8', f: 'pretendard' }
   };
   var card = null;
   function openCard(p) {
@@ -2094,7 +2184,7 @@
     if (!CARDS[prefs.cardD]) prefs.cardD = 'paper';
     pn.dataset.mode = 'card';
     var h = '<div class="grab"></div><div class="hd"><h3>\uc0ac\uc9c4\uc73c\ub85c \uc800\uc7a5</h3><button class="x" data-act="close" aria-label="\ub2eb\uae30">' + I.x + '</button></div>' +
-      '<div class="cdv"><canvas></canvas></div><div class="seg cds">' +
+      '<div class="cdv"><canvas></canvas></div><div class="cds">' +
       Object.keys(CARDS).map(function (k) { return '<button data-act="cardD" data-v="' + k + '">' + CARDS[k].n + '</button>'; }).join('') + '</div>' +
       '<div class="cdr"><button data-act="cardAdd" data-d="-1">\uc55e \ubb38\ub2e8 \ub354\ud558\uae30</button><button data-act="cardAdd" data-d="1">\ub4a4 \ubb38\ub2e8 \ub354\ud558\uae30</button><button data-act="cardOne">\uc774 \ubb38\ub2e8\ub9cc</button></div>' +
       '<button class="wide pri" data-act="cardSave">' + I.dl + '\uc0ac\uc9c4 \uc800\uc7a5</button>' +
@@ -2128,6 +2218,7 @@
     if (!card) return;
     var W = 1080, P = 116, TW = W - P * 2, ctx = cv.getContext('2d'), paras = cardText();
     var w0 = libAll()[card.it.ch.id] || {}, book = bookName(w0), tp = titleParts(card.it.title || ''), chap = (tp.label ? tp.label + ' ' : '') + (tp.name || '');
+    if (D.scene) { drawScene(cv, D, F, paras, book, chap); return; }
     var fs = 46, lines, lh, gap, H;
     for (; fs >= 30; fs -= 2) {
       ctx.font = '400 ' + fs + 'px ' + F.f; lh = Math.round(fs * 1.75); gap = Math.round(fs * 0.9);
@@ -2148,6 +2239,41 @@
     ctx.fillStyle = D.ac; ctx.fillRect(P, fy, 56, 3);
     ctx.fillStyle = D.fg; ctx.font = '700 30px ' + FONTS.pretendard.f; ctx.fillText(fitW(ctx, book, TW), P, fy + 28);
     ctx.fillStyle = D.mut; ctx.font = '400 26px ' + FONTS.pretendard.f; ctx.fillText(fitW(ctx, chap, TW), P, fy + 72);
+  }
+  // \ud48d\uacbd \uce74\ub4dc: \uc815\uc0ac\uac01\ud615, \uae00\uc740 \uac00\uc6b4\ub370 \uc815\ub82c, \uae00\uc790\uac00 \ubb3b\ud788\uc9c0 \uc54a\uac8c \uac00\uc6b4\ub370\ub97c \uc0b4\uc9dd \ubc1d\ud798
+  function drawScene(cv, D, F, paras, book, chap) {
+    var W = 1080, H = 1080, P = 120, TW = W - P * 2, ctx = cv.getContext('2d');
+    cv.width = W; cv.height = H;
+    SCENES[D.scene](ctx, W, H, rngOf(hashStr(paras.join('\n') + D.scene)));
+    var g = ctx.createRadialGradient(W / 2, H * 0.47, 0, W / 2, H * 0.47, W * 0.62);
+    g.addColorStop(0, 'rgba(255,255,255,0.42)'); g.addColorStop(0.7, 'rgba(255,255,255,0.16)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    var avail = H - P * 2 - 150, fs, lines, lh, gap, body, over = false;
+    for (fs = 44; fs >= 28; fs -= 2) {
+      ctx.font = '400 ' + fs + 'px ' + F.f; lh = Math.round(fs * 1.7); gap = Math.round(fs * 0.8);
+      lines = paras.map(function (t) { return wrapText(ctx, t, TW); });
+      body = lines.reduce(function (s0, l) { return s0 + l.length * lh; }, 0) + gap * (paras.length - 1);
+      if (body <= avail) break;
+    }
+    if (body > avail) { // \uac00\uc7a5 \uc791\uc740 \uae00\uc790\ub85c\ub3c4 \ub118\uce58\uba74 \ub118\uce58\ub294 \uc904\uc740 '\u2026'\ub85c \ub04a\uc74c
+      over = true; var flat = [], used = 0;
+      lines.forEach(function (ls, k) { ls.forEach(function (l) { if (used + lh <= avail) { flat.push(l); used += lh; } }); if (k < lines.length - 1) used += gap; });
+      if (flat.length) flat[flat.length - 1] = flat[flat.length - 1].replace(/.?$/, '\u2026');
+      lines = [flat]; body = used;
+    }
+    card.over = over;
+    var y = Math.round(P + (avail - body) / 2) + 10;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.shadowColor = 'rgba(255,255,255,0.55)'; ctx.shadowBlur = 14;
+    ctx.fillStyle = D.fg; ctx.font = '400 ' + fs + 'px ' + F.f;
+    lines.forEach(function (ls, k) { ls.forEach(function (l) { ctx.fillText(l, W / 2, y + (lh - fs) / 2); y += lh; }); if (k < lines.length - 1) y += gap; });
+    var fy = H - P - 78;
+    ctx.shadowBlur = 0; ctx.fillStyle = D.ac; ctx.fillRect(W / 2 - 24, fy, 48, 2);
+    ctx.shadowBlur = 10; ctx.fillStyle = D.fg; ctx.font = '700 28px ' + FONTS.pretendard.f; ctx.fillText(fitW(ctx, book, TW), W / 2, fy + 24);
+    ctx.fillStyle = D.mut; ctx.font = '400 24px ' + FONTS.pretendard.f; ctx.fillText(fitW(ctx, chap, TW), W / 2, fy + 64);
+    ctx.shadowBlur = 0; ctx.textAlign = 'left';
+    var bp = pn.querySelector('[data-act=cardAdd][data-d="-1"]'), bn = pn.querySelector('[data-act=cardAdd][data-d="1"]');
+    if (over) { if (bp) bp.disabled = true; if (bn) bn.disabled = true; }
   }
   function fitW(ctx, t, w) { t = String(t || ''); if (ctx.measureText(t).width <= w) return t; while (t.length > 1 && ctx.measureText(t + '\u2026').width > w) t = t.slice(0, -1); return t + '\u2026'; }
   function cardBlob() { var cv = pn.querySelector('.cdv canvas'); return new Promise(function (ok) { cv.toBlob(function (b) { ok(b); }, 'image/png'); }); }
