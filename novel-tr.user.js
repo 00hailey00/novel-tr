@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.8.4
+// @version      1.8.5
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -2718,7 +2718,7 @@
     check(); setTimeout(check, 2000); setTimeout(check, 6000); setTimeout(function () { mo3.disconnect(); }, 15500);
   }
   function makeLauncher() {
-    // \ub3d9\uadf8\ub780 \ubc18\ud22c\uba85 \ubc84\ud2bc: \uc5b4\ub290 \uc0ac\uc774\ud2b8 \uc0c9\uc5d0\ub3c4 \ubb3b\ud788\uc9c0 \uc54a\uac8c \uc9d9\uc740 \uc720\ub9ac\uc0c9, \ub04c\uc5b4\uc11c \uc62e\uae30\uba74 \uac00\uae4c\uc6b4 \ucabd \uac00\uc7a5\uc790\ub9ac\uc5d0 \ubd99\uace0 \uc704\uce58\ub97c \uae30\uc5b5
+    // '\ubc88\uc5ed' \uc54c\uc57d \ubc84\ud2bc: \uc5b4\ub290 \uc0ac\uc774\ud2b8 \uc0c9\uc5d0\ub3c4 \ubb3b\ud788\uc9c0 \uc54a\uac8c \uc9d9\uc740 \uc720\ub9ac\uc0c9, \ub04c\uc5b4\uc11c \uc62e\uae30\uba74 \uac00\uae4c\uc6b4 \ucabd \uac00\uc7a5\uc790\ub9ac\uc5d0 \ubd99\uace0 \uc704\uce58\ub97c \uae30\uc5b5
     var h = document.createElement('div'), pos = gget('lpos', null) || { s: 'r', y: 0.72 };
     function place() {
       var vh = window.innerHeight, y = Math.max(70, Math.min(vh - 120, pos.y * vh));
@@ -2726,19 +2726,19 @@
     }
     place();
     var r = h.attachShadow({ mode: 'closed' });
-    r.innerHTML = '<style>button{all:initial;box-sizing:border-box;position:relative;width:52px;height:52px;border-radius:50%;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:none;' +
-      'background:rgba(32,33,38,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);box-shadow:0 4px 14px rgba(0,0,0,.25),0 1px 3px rgba(0,0,0,.2);transition:transform .15s}' +
-      'button:active{transform:scale(.92)}' +
-      '.z,.k{position:absolute;font-family:-apple-system,"Noto Sans KR","Malgun Gothic",sans-serif;line-height:1;color:#fff}' +
-      '.z{left:11px;top:11px;font-size:13px;font-weight:500;opacity:.55}.k{right:11px;bottom:11px;font-size:18px;font-weight:700}</style>' +
-      '<button aria-label="\ubc88\uc5ed"><span class="z">\u6587</span><span class="k">\uac00</span></button>';
+    r.innerHTML = '<style>button{all:initial;box-sizing:border-box;display:flex;align-items:center;gap:7px;height:44px;padding:0 17px 0 14px;border-radius:999px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:none;' +
+      'background:rgba(30,31,36,.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.1);' +
+      'box-shadow:0 6px 18px rgba(0,0,0,.22),0 1px 3px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.06);transition:transform .15s;' +
+      'font:600 14.5px/1 -apple-system,"Pretendard Variable",Pretendard,"Noto Sans KR",sans-serif;letter-spacing:-.01em;color:#f4f4f5}' +
+      'button:active{transform:scale(.94)}svg{width:18px;height:18px;fill:none;stroke:#a9c4ff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}</style>' +
+      '<button aria-label="\ubc88\uc5ed"><svg viewBox="0 0 24 24"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>\ubc88\uc5ed</button>';
     var b = r.querySelector('button'), down = null, drag = false;
     function go() { openReader(); }
     b.addEventListener('pointerdown', function (e) { down = { x: e.clientX, y: e.clientY, t: h.getBoundingClientRect().top }; drag = false; try { b.setPointerCapture(e.pointerId); } catch (x) { } e.stopPropagation(); }, true);
     b.addEventListener('pointermove', function (e) {
       if (!down) return;
       if (!drag && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 12) drag = true;
-      if (drag) { h.style.transition = 'none'; h.style.top = Math.max(10, Math.min(window.innerHeight - 62, down.t + e.clientY - down.y)) + 'px'; h.style.left = (e.clientX - 26) + 'px'; h.style.right = 'auto'; }
+      if (drag) { h.style.transition = 'none'; h.style.top = Math.max(10, Math.min(window.innerHeight - 54, down.t + e.clientY - down.y)) + 'px'; h.style.left = (e.clientX - h.offsetWidth / 2) + 'px'; h.style.right = 'auto'; }
     }, true);
     b.addEventListener('pointerup', function (e) {
       e.stopPropagation(); e.preventDefault();
