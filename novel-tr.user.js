@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.8.6
+// @version      1.8.7
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -2017,6 +2017,7 @@
     var I0 = cIndex(), extra = Object.keys(I0).filter(function (k) {
       if (I0[k].w !== it.ch.id || have[k] || trT[I0[k].t]) return false;
       if (isBadV(gget('c:' + k, null))) return false; // \uad11\uace0\u00b7'\ub85c\ub529 \uc911' \uac19\uc740 \uc798\ubabb \uc800\uc7a5\ub41c \ubc88\uc5ed\uc740 \ubaa9\ucc28\uc5d0 \ub07c\uc6cc \ub123\uc9c0 \uc54a\uc74c
+      var t2 = String(I0[k].t || '').trim(); if (!t2 || LOADT.test(t2) || LOADT.test(stripNum(t2))) return false; // \uc81c\ubaa9\uc744 \ubabb \uc77d\uc740 \ud654(\ub300\uac1c \ub098\ub25c \ud654\uc758 \ub4a4\ucabd \ucabd)\ub294 \uc5b4\ub514\uc5d0 \ub458\uc9c0 \ubab0\ub77c \ube7c \ub460
       var n2 = chNum(I0[k].t || ''); return !(n2 != null && nums[n2]);
     });
     var curHit = 0, curN = chNum(it.title || ''), curAlias = !have[ckey(it.ch.url)] && curN != null && nums[curN]; // \uc9c0\uae08 \ud654\uac00 \ubaa9\ucc28\uc5d0 \uc5c6\ub294 2\ucabd\uc774\uba74 \uac19\uc740 \ubc88\ud638 \uc904\uc744 '\uc77d\ub294 \uc911'\uc73c\ub85c
