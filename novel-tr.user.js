@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.8.2
+// @version      1.8.3
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -2718,21 +2718,44 @@
     check(); setTimeout(check, 2000); setTimeout(check, 6000); setTimeout(function () { mo3.disconnect(); }, 15500);
   }
   function makeLauncher() {
-    var h = document.createElement('div');
-    h.style.cssText = 'position:fixed;right:16px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:2147483646;';
+    // \ub3d9\uadf8\ub780 \ubc18\ud22c\uba85 \ubc84\ud2bc: \uc5b4\ub290 \uc0ac\uc774\ud2b8 \uc0c9\uc5d0\ub3c4 \ubb3b\ud788\uc9c0 \uc54a\uac8c \uc9d9\uc740 \uc720\ub9ac\uc0c9, \ub04c\uc5b4\uc11c \uc62e\uae30\uba74 \uac00\uae4c\uc6b4 \ucabd \uac00\uc7a5\uc790\ub9ac\uc5d0 \ubd99\uace0 \uc704\uce58\ub97c \uae30\uc5b5
+    var h = document.createElement('div'), pos = gget('lpos', null) || { s: 'r', y: 0.72 };
+    function place() {
+      var vh = window.innerHeight, y = Math.max(70, Math.min(vh - 120, pos.y * vh));
+      h.style.cssText = 'position:fixed;top:' + y + 'px;' + (pos.s === 'l' ? 'left' : 'right') + ':12px;z-index:2147483646;transition:opacity .25s,transform .25s';
+    }
+    place();
     var r = h.attachShadow({ mode: 'closed' });
-    r.innerHTML = '<style>button{all:initial;font:600 15px/1 -apple-system,"Noto Sans KR",sans-serif;color:#fff;background:#2f6fdb;' +
-      'padding:15px 20px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.28);cursor:pointer;-webkit-tap-highlight-color:transparent;' +
-      'display:flex;align-items:center;gap:6px;touch-action:manipulation}button:active{transform:scale(.95)}</style><button>\ubc88\uc5ed \u25b8</button>';
-    var b = r.querySelector('button'), down = null;
+    r.innerHTML = '<style>button{all:initial;box-sizing:border-box;position:relative;width:52px;height:52px;border-radius:50%;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:none;' +
+      'background:rgba(32,33,38,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);box-shadow:0 4px 14px rgba(0,0,0,.25),0 1px 3px rgba(0,0,0,.2);transition:transform .15s}' +
+      'button:active{transform:scale(.92)}' +
+      '.z,.k{position:absolute;font-family:-apple-system,"Noto Sans KR","Malgun Gothic",sans-serif;line-height:1;color:#fff}' +
+      '.z{left:11px;top:11px;font-size:13px;font-weight:500;opacity:.55}.k{right:11px;bottom:11px;font-size:18px;font-weight:700}</style>' +
+      '<button aria-label="\ubc88\uc5ed"><span class="z">\u6587</span><span class="k">\uac00</span></button>';
+    var b = r.querySelector('button'), down = null, drag = false;
     function go() { openReader(); }
-    b.addEventListener('pointerdown', function (e) { down = { x: e.clientX, y: e.clientY }; e.stopPropagation(); }, true);
+    b.addEventListener('pointerdown', function (e) { down = { x: e.clientX, y: e.clientY, t: h.getBoundingClientRect().top }; drag = false; try { b.setPointerCapture(e.pointerId); } catch (x) { } e.stopPropagation(); }, true);
+    b.addEventListener('pointermove', function (e) {
+      if (!down) return;
+      if (!drag && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 12) drag = true;
+      if (drag) { h.style.transition = 'none'; h.style.top = Math.max(10, Math.min(window.innerHeight - 62, down.t + e.clientY - down.y)) + 'px'; h.style.left = (e.clientX - 26) + 'px'; h.style.right = 'auto'; }
+    }, true);
     b.addEventListener('pointerup', function (e) {
       e.stopPropagation(); e.preventDefault();
-      if (down && Math.abs(e.clientX - down.x) < 12 && Math.abs(e.clientY - down.y) < 12) go();
-      down = null;
+      if (down && drag) { pos = { s: e.clientX < window.innerWidth / 2 ? 'l' : 'r', y: h.getBoundingClientRect().top / window.innerHeight }; gset('lpos', pos); place(); }
+      else if (down) go();
+      down = null; drag = false;
     }, true);
+    b.addEventListener('pointercancel', function () { if (drag) place(); down = null; drag = false; }, true);
     b.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); }, true);
+    // \uc77d\ub290\ub77c \uc544\ub798\ub85c \uc2a4\ud06c\ub864\ud558\ub294 \ub3d9\uc548\uc740 \uc605\uac8c, \uba48\ucd94\uac70\ub098 \uc704\ub85c \uc62c\ub9ac\uba74 \ub2e4\uc2dc \ub610\ub837\ud558\uac8c
+    var lastY = window.scrollY, idle = 0;
+    window.addEventListener('scroll', function () {
+      var y = window.scrollY;
+      if (y > lastY + 4) { h.style.opacity = '.35'; h.style.transform = 'scale(.9)'; } else if (y < lastY - 4) { h.style.opacity = ''; h.style.transform = ''; }
+      lastY = y; clearTimeout(idle); idle = setTimeout(function () { h.style.opacity = ''; h.style.transform = ''; }, 1200);
+    }, { passive: true });
+    window.addEventListener('resize', function () { if (!drag) place(); });
     (document.body || document.documentElement).appendChild(h);
     // \uad11\uace0 \uc2a4\ud06c\ub9bd\ud2b8\uac00 \ubc84\ud2bc\uc744 \uc9c0\uc6b0\uba74 \ub2e4\uc2dc \ubd99\uc784
     var mo2 = new MutationObserver(function () { if (!h.isConnected && h.__keep) (document.body || document.documentElement).appendChild(h); });
