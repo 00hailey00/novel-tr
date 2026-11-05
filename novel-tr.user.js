@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.8.3
+// @version      1.8.4
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -1054,8 +1054,8 @@
     '<header class="top"><button class="ib" data-act="lib" aria-label="\uc11c\uc7ac">' + I.lib + '</button><div class="tt"><b></b><span></span></div>' +
     '<button class="ib" data-act="toc" aria-label="\ubaa9\ucc28">' + I.toc + '</button></header>' +
     '<div class="bot">' +
-    '<nav class="btns"><button class="nb" data-act="prev">' + I.prev + '\uc774\uc804 \ud654</button><button class="nb" data-act="toc">' + I.toc + '\ubaa9\ucc28</button>' +
-    '<button class="nb" data-act="aa">' + I.aa + '\ubcf4\uae30</button><button class="nb nx" data-act="next">' + I.next + '\ub2e4\uc74c \ud654</button></nav></div>' +
+    '<nav class="btns"><button class="nb" data-act="prev">' + I.prev + '\uc774\uc804 \ud654</button><button class="nb" data-act="aa">' + I.aa + '\ubcf4\uae30</button>' +
+    '<button class="nb" data-act="toc">' + I.toc + '\ubaa9\ucc28</button><button class="nb nx" data-act="next">' + I.next + '\ub2e4\uc74c \ud654</button></nav></div>' +
     '<div class="pg"><div class="ph"><button class="ib" data-act="pgClose" aria-label="\ub2eb\uae30">' + I.back + '</button><h3></h3><button class="ed" data-act="libEdit">\ud3b8\uc9d1</button></div><div class="pb"></div></div>' +
     '<div class="scrim" data-act="close"></div><div class="pn"></div><div class="toast"></div></div>';
   var $ = function (q) { return root.querySelector(q); };
