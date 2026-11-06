@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.9.0
+// @version      1.9.1
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -1858,12 +1858,22 @@
     var w = libAll()[id]; if (!w) return;
     workId0 = id; pn.dataset.mode = 'work'; gset('lpSeen', 1);
     var h = '<div class="grab"></div><div class="hd wk">' + coverHtml(id, 'width:44px') + '<h3>' + esc(bookName(w)) + '</h3><button class="x" data-act="close" aria-label="\ub2eb\uae30">' + I.x + '</button></div>' +
+      '<div class="urlrow"><input class="url namein" type="text" maxlength="60" value="' + esc(bookName(w)) + '" placeholder="\uc791\ud488 \uc774\ub984" enterkeyhint="done"><button class="go" data-act="workRename" data-id="' + esc(id) + '">\ubc14\uafb8\uae30</button></div>' +
       '<div class="tagbox">' + ((w.tags || []).map(function (t) { return tagHtml(t, true, id); }).join('') || '<span class="hint" style="margin:0">\ud0dc\uadf8\uac00 \uc5c6\uc5b4\uc694</span>') + '</div>' +
       '<div class="urlrow"><input class="url tagin" type="text" maxlength="12" placeholder="\ud0dc\uadf8 \uc774\ub984 (\uc608: \uc644\uacb0, \ud68c\uadc0, \uc7ac\ubc0c\uc74c)"><button class="go" data-act="tagAdd" data-id="' + esc(id) + '">\ucd94\uac00</button></div>' +
       '<button class="wide" data-act="namesOpen" data-id="' + esc(id) + '">' + I.user + '\uc778\ubb3c \uc774\ub984 ' + Object.keys(w.names || {}).length + '\uac1c</button>' +
       '<button class="wide" data-act="export" data-id="' + esc(id) + '">' + I.dl + '\ubc88\uc5ed\ub41c \ud654 TXT\ub85c \uc800\uc7a5</button>' +
       '<button class="wide danger" data-act="libDelAsk" data-id="' + esc(id) + '">' + I.x + '\uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6b0\uae30</button>';
     pn.innerHTML = h; pn.scrollTop = 0; showSheet();
+  }
+  // \uc791\ud488 \uc774\ub984 \ubc14\uafb8\uae30: \ube44\uc6b0\uace0 \ubc14\uafb8\uba74 \uc6d0\ub798 \uc81c\ubaa9\uc744 \ub2e4\uc2dc \ubc88\uc5ed\ud574\uc11c \uc500
+  function renameWork(id, inp) {
+    var v = (inp && inp.value || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    var L = libAll(), w = L[id]; if (!w) return;
+    if (v) w.bookKo = v; else delete w.bookKo;
+    gset('lib', L); renderLibBody(); openWork(id);
+    var cur = chapters[curIndex()] || lastItem(); if (cur && cur.ch.id === id && v) topB.textContent = v;
+    toast(v ? '\uc774\ub984\uc744 \ubc14\uafe8\uc5b4\uc694' : '\uc6d0\ub798 \uc81c\ubaa9\uc744 \ub2e4\uc2dc \ubc88\uc5ed\ud574\uc11c \uc4f8\uac8c\uc694');
   }
   function addTag(id, inp) {
     var v = (inp && inp.value || '').replace(/\s+/g, ' ').trim().slice(0, 12); if (!v) { inp && inp.focus(); return; }
@@ -2480,6 +2490,7 @@
       t.classList.add('sure'); t.innerHTML = I.x + '\ud55c \ubc88 \ub354 \ub204\ub974\uba74 \uc9c0\uc6cc\uc694'; buzz(); return;
     }
     if (name === 'libTag') { libTag = t.dataset.tag || null; renderLibBody(); pgB.scrollTop = 0; return; }
+    if (name === 'workRename') { renameWork(t.dataset.id, pn.querySelector('.namein')); return; }
     if (name === 'tagAdd') { addTag(t.dataset.id, pn.querySelector('.tagin')); return; }
     if (name === 'tagDel') { var L3 = libAll(), w3 = L3[t.dataset.id]; if (w3 && w3.tags) { w3.tags = w3.tags.filter(function (x) { return x !== t.dataset.tag; }); gset('lib', L3); renderLibBody(); openWork(t.dataset.id); } return; }
     if (name === 'open') { openChapter(t.dataset.u, pageMode === 'lib' ? 'lib' : 'toc'); return; }
@@ -2664,6 +2675,7 @@
   root.addEventListener('keydown', function (e) { // \ud0dc\uadf8 \uc785\ub825: \uc5d4\ud130\ub85c \ucd94\uac00
     var tg = e.composedPath && e.composedPath()[0];
     if (e.key === 'Enter' && tg && tg.classList && tg.classList.contains('tagin') && workId0) { e.preventDefault(); addTag(workId0, tg); }
+    if (e.key === 'Enter' && tg && tg.classList && tg.classList.contains('namein') && workId0) { e.preventDefault(); renameWork(workId0, tg); }
   }, true);
   function unpress() { [].forEach.call(root.querySelectorAll('.press'), function (n) { n.classList.remove('press'); }); }
   function fire(e) {
