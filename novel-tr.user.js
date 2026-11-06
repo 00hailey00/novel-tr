@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.9.1
+// @version      1.9.2
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -1863,7 +1863,7 @@
       '<div class="urlrow"><input class="url tagin" type="text" maxlength="12" placeholder="\ud0dc\uadf8 \uc774\ub984 (\uc608: \uc644\uacb0, \ud68c\uadc0, \uc7ac\ubc0c\uc74c)"><button class="go" data-act="tagAdd" data-id="' + esc(id) + '">\ucd94\uac00</button></div>' +
       '<button class="wide" data-act="namesOpen" data-id="' + esc(id) + '">' + I.user + '\uc778\ubb3c \uc774\ub984 ' + Object.keys(w.names || {}).length + '\uac1c</button>' +
       '<button class="wide" data-act="export" data-id="' + esc(id) + '">' + I.dl + '\ubc88\uc5ed\ub41c \ud654 TXT\ub85c \uc800\uc7a5</button>' +
-      '<button class="wide danger" data-act="libDelAsk" data-id="' + esc(id) + '">' + I.x + '\uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6b0\uae30</button>';
+      '<button class="wide danger" data-act="libDelAsk" data-id="' + esc(id) + '">' + I.x + '\uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6b0\uae30 (\ubc88\uc5ed\ub3c4 \ud568\uaed8)</button>';
     pn.innerHTML = h; pn.scrollTop = 0; showSheet();
   }
   // \uc791\ud488 \uc774\ub984 \ubc14\uafb8\uae30: \ube44\uc6b0\uace0 \ubc14\uafb8\uba74 \uc6d0\ub798 \uc81c\ubaa9\uc744 \ub2e4\uc2dc \ubc88\uc5ed\ud574\uc11c \uc500
@@ -2484,7 +2484,11 @@
     if (name === 'libEdit') { var on = !pg.classList.contains('edit'); pg.classList.toggle('edit', on); edBtn.textContent = on ? '\uc644\ub8cc' : '\ud3b8\uc9d1'; renderLibBody(); return; }
     if (name === 'export') { exportWork(t.dataset.id); return; }
     if (name === 'exportCur') { var ci2 = chapters[curIndex()] || lastItem(); if (ci2) exportWork(ci2.ch.id); return; }
-    if (name === 'libDel') { var L = libAll(); delete L[t.dataset.id]; gset('lib', L); closeSheet(); renderLibBody(); toast('\uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6e0\uc5b4\uc694 (\ubc88\uc5ed\uc740 \ub0a8\uc544 \uc788\uc5b4\uc694)'); return; }
+    if (name === 'libDel') { // \uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6b0\uba74 \uadf8 \uc791\ud488\uc758 \uc800\uc7a5\ub41c \ubc88\uc5ed\ub3c4 \ud568\uaed8 \uc9c0\uc6cc\uc11c \uc800\uc7a5 \uacf5\uac04\uc744 \ube44\uc6c0
+      var L = libAll(), did = t.dataset.id; delete L[did]; gset('lib', L);
+      var IX = cIndex(), nDel = 0; Object.keys(IX).forEach(function (k) { if (IX[k].w === did) { delete IX[k]; gdel('c:' + k); nDel++; } }); if (nDel) cidxSave(IX);
+      tocMem = {}; closeSheet(); renderLibBody(); toast(nDel ? '\uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6e0\uc5b4\uc694 (\ubc88\uc5ed ' + nDel + '\ud654\ub3c4 \uc9c0\uc6e0\uc5b4\uc694)' : '\uc11c\uc7ac\uc5d0\uc11c \uc9c0\uc6e0\uc5b4\uc694'); return;
+    }
     if (name === 'libDelAsk') { // \uc2e4\uc218 \ubc29\uc9c0: \ud55c \ubc88 \ub354 \ub20c\ub7ec\uc57c \uc9c0\uc6c0
       if (t.classList.contains('sure')) { act('libDel', t); return; }
       t.classList.add('sure'); t.innerHTML = I.x + '\ud55c \ubc88 \ub354 \ub204\ub974\uba74 \uc9c0\uc6cc\uc694'; buzz(); return;
