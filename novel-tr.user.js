@@ -1308,6 +1308,7 @@
     if (hist) h += '<button class="wide" data-act="paraUndo">' + I.undo + '\uc774\uc804 \ubc88\uc5ed\uc73c\ub85c \ub418\ub3cc\ub9ac\uae30</button>';
     h += '<button class="wide" data-act="paraCopy">' + I.copy + '\ubcf5\uc0ac</button>';
     if (it) h += '<button class="wide" data-act="card">' + I.img + '\uc0ac\uc9c4\uc73c\ub85c \uc800\uc7a5</button>';
+    if (it && it.v && p._idx != null) h += '<button class="wide" data-act="paraDelAsk">' + I.x + '\uc774 \ubb38\ub2e8 \uc9c0\uc6b0\uae30</button>';
     pn.innerHTML = h; pn.scrollTop = 0; showSheet();
   }
   function itemOf(node) { for (var i = 0; i < chapters.length; i++) if (chapters[i].sec.contains(node)) return chapters[i]; return null; }
@@ -1315,6 +1316,16 @@
     setTr(p, text); p.classList.remove('tr'); void p.offsetWidth; p.classList.add('tr');
     if (it.v && p._idx != null) { it.v.lines[p._idx] = text; cachePut(it.ch.url, it.v, it.ch.id); }
     else (it.pendEd || (it.pendEd = [])).push({ p: p, text: text }); // \uc544\uc9c1 \ubc88\uc5ed \uc911\uc778 \ud654: \ub05d\ub098\uace0 \uc800\uc7a5\ud560 \ub54c \ubc18\uc601
+  }
+  // \ubc88\uc5ed\uc5d0 \uc11e\uc5ec \ub098\uc628 \uc124\uba85\u00b7\ucd94\ub860 \uac19\uc740 \ubb38\ub2e8\uc744 \uc9c0\uc6c0 (\uc800\uc7a5\ub41c \ubc88\uc5ed\uc5d0\uc11c\ub3c4 \ube60\uc9d0)
+  function delParagraph(p) {
+    var it = itemOf(p); if (!it || !it.v || p._idx == null) return false;
+    var i = p._idx, v = it.v;
+    v.lines.splice(i, 1);
+    if (v.parts && v.parts.length) { var acc = 0; for (var g = 0; g < v.parts.length; g++) { acc += v.parts[g]; if (i < acc) { v.parts[g]--; break; } } }
+    [].forEach.call(it.sec.querySelectorAll('p'), function (x) { if (x._idx != null && x._idx > i) x._idx--; });
+    p.remove(); cachePut(it.ch.url, v, it.ch.id);
+    return true;
   }
   async function retrParagraph(p) {
     var it = itemOf(p); if (!it) return;
@@ -2511,6 +2522,10 @@
     if (name === 'reset') { prefs = fill({ v: 2 }); savePrefs(); applyPrefs(); toast('\ubcf4\uae30 \uc124\uc815\uc744 \ucd08\uae30\ud654\ud588\uc5b4\uc694'); return; }
     if (name === 'api') { closeSheet(); window.open(SETTINGS_URL, 'nvtrSettings'); return; }
     if (name === 'paraRetr') { var hp = holdP; closeSheet(); retrParagraph(hp); return; }
+    if (name === 'paraDelAsk') { // \uc2e4\uc218 \ubc29\uc9c0: \ud55c \ubc88 \ub354 \ub20c\ub7ec\uc57c \uc9c0\uc6c0
+      if (t.classList.contains('sure')) { var dp = holdP; holdP = null; closeSheet(); if (dp && delParagraph(dp)) toast('\ubb38\ub2e8\uc744 \uc9c0\uc6e0\uc5b4\uc694'); return; }
+      t.classList.add('sure'); t.innerHTML = I.x + '\ud55c \ubc88 \ub354 \ub204\ub974\uba74 \uc9c0\uc6cc\uc694'; buzz(); return;
+    }
     if (name === 'paraUndo') { var up = holdP, uit = itemOf(up); closeSheet(); if (up && up._hist && up._hist.length) { setPara(uit, up, up._hist.pop()); toast('\ub418\ub3cc\ub838\uc5b4\uc694'); } return; }
     if (name === 'paraCopy') {
       var txt = holdP ? holdP.textContent : ''; closeSheet();
