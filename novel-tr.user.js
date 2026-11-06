@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.9.3
+// @version      1.9.4
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -871,6 +871,7 @@
     undo: '<svg viewBox="0 0 24 24"><path d="M4 11a8 8 0 1 1 2.3 5.7M4 4v7h7"/></svg>',
     copy: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>',
     search: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>',
+    pen: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>',
     img: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-5-5-8.5 8"/></svg>'
   };
 
@@ -1022,6 +1023,9 @@
     '.tagbox .tag{font-size:13.5px;padding:8px 12px;min-height:34px}',
     '.hd.wk{display:flex;align-items:center;gap:12px}',
     '.hd.wk h3{flex:1;min-width:0;font-size:17px;line-height:1.35}',
+    '.hd.wk h3 .pen{display:inline-flex;vertical-align:-3px;margin-left:4px;width:30px;height:30px;align-items:center;justify-content:center;border-radius:8px;color:var(--mut)}',
+    '.hd.wk h3 .pen svg{width:17px;height:17px}',
+    '.hd.wk .namein{width:100%;box-sizing:border-box;font:inherit;font-weight:700;color:var(--fg);background:transparent;border:0;border-bottom:2px solid var(--ac);padding:2px 0 4px;outline:none;border-radius:0}',
     '.wide.danger{color:var(--mut)}',
     '.wide.danger.sure{background:var(--fg);color:var(--bg);border-color:var(--fg)}',
     '.tagbar{display:flex;gap:8px;overflow-x:auto;margin:0 -18px 14px;padding:2px 18px;scrollbar-width:none}',
@@ -1857,8 +1861,7 @@
   function openWork(id) {
     var w = libAll()[id]; if (!w) return;
     workId0 = id; pn.dataset.mode = 'work'; gset('lpSeen', 1);
-    var h = '<div class="grab"></div><div class="hd wk">' + coverHtml(id, 'width:44px') + '<h3>' + esc(bookName(w)) + '</h3><button class="x" data-act="close" aria-label="\ub2eb\uae30">' + I.x + '</button></div>' +
-      '<div class="urlrow"><input class="url namein" type="text" maxlength="60" value="' + esc(bookName(w)) + '" placeholder="\uc791\ud488 \uc774\ub984" enterkeyhint="done"><button class="go" data-act="workRename" data-id="' + esc(id) + '">\ubc14\uafb8\uae30</button></div>' +
+    var h = '<div class="grab"></div><div class="hd wk">' + coverHtml(id, 'width:44px') + '<h3 class="wt"><span>' + esc(bookName(w)) + '</span><button class="pen" data-act="workRenameEdit" aria-label="\uc774\ub984 \uace0\uce58\uae30">' + I.pen + '</button></h3><button class="x" data-act="close" aria-label="\ub2eb\uae30">' + I.x + '</button></div>' +
       '<div class="tagbox">' + ((w.tags || []).map(function (t) { return tagHtml(t, true, id); }).join('') || '<span class="hint" style="margin:0">\ud0dc\uadf8\uac00 \uc5c6\uc5b4\uc694</span>') + '</div>' +
       '<div class="urlrow"><input class="url tagin" type="text" maxlength="12" placeholder="\ud0dc\uadf8 \uc774\ub984 (\uc608: \uc644\uacb0, \ud68c\uadc0, \uc7ac\ubc0c\uc74c)"><button class="go" data-act="tagAdd" data-id="' + esc(id) + '">\ucd94\uac00</button></div>' +
       '<button class="wide" data-act="namesOpen" data-id="' + esc(id) + '">' + I.user + '\uc778\ubb3c \uc774\ub984 ' + Object.keys(w.names || {}).length + '\uac1c</button>' +
@@ -2494,7 +2497,13 @@
       t.classList.add('sure'); t.innerHTML = I.x + '\ud55c \ubc88 \ub354 \ub204\ub974\uba74 \uc9c0\uc6cc\uc694'; buzz(); return;
     }
     if (name === 'libTag') { libTag = t.dataset.tag || null; renderLibBody(); pgB.scrollTop = 0; return; }
-    if (name === 'workRename') { renameWork(t.dataset.id, pn.querySelector('.namein')); return; }
+    if (name === 'workRenameEdit') { // \uc81c\ubaa9 \uc606 \uc5f0\ud544: \uc81c\ubaa9 \uc790\ub9ac\uac00 \uadf8\ub300\ub85c \uc785\ub825\uce78\uc774 \ub428 (\uc5d4\ud130\ub098 \ub2e4\ub978 \uacf3 \ub204\ub974\uba74 \uc800\uc7a5)
+      var h3 = pn.querySelector('.hd.wk h3'), w5 = libAll()[workId0]; if (!h3 || !w5) return;
+      h3.innerHTML = '<input class="namein" type="text" maxlength="60" enterkeyhint="done" placeholder="\ube44\uc6b0\uba74 \uc6d0\ub798 \uc81c\ubaa9">';
+      var ni = h3.querySelector('input'), orig = bookName(w5); ni.value = orig; ni.focus(); try { ni.setSelectionRange(0, ni.value.length); } catch (e) { }
+      ni.addEventListener('blur', function () { if (ni.isConnected && !ni._done) { ni._done = 1; if (ni.value.trim() !== orig) renameWork(workId0, ni); else openWork(workId0); } });
+      return;
+    }
     if (name === 'tagAdd') { addTag(t.dataset.id, pn.querySelector('.tagin')); return; }
     if (name === 'tagDel') { var L3 = libAll(), w3 = L3[t.dataset.id]; if (w3 && w3.tags) { w3.tags = w3.tags.filter(function (x) { return x !== t.dataset.tag; }); gset('lib', L3); renderLibBody(); openWork(t.dataset.id); } return; }
     if (name === 'open') { openChapter(t.dataset.u, pageMode === 'lib' ? 'lib' : 'toc'); return; }
@@ -2679,7 +2688,8 @@
   root.addEventListener('keydown', function (e) { // \ud0dc\uadf8 \uc785\ub825: \uc5d4\ud130\ub85c \ucd94\uac00
     var tg = e.composedPath && e.composedPath()[0];
     if (e.key === 'Enter' && tg && tg.classList && tg.classList.contains('tagin') && workId0) { e.preventDefault(); addTag(workId0, tg); }
-    if (e.key === 'Enter' && tg && tg.classList && tg.classList.contains('namein') && workId0) { e.preventDefault(); renameWork(workId0, tg); }
+    if (e.key === 'Enter' && tg && tg.classList && tg.classList.contains('namein') && workId0) { e.preventDefault(); tg._done = 1; renameWork(workId0, tg); }
+    if (e.key === 'Escape' && tg && tg.classList && tg.classList.contains('namein') && workId0) { e.preventDefault(); tg._done = 1; openWork(workId0); }
   }, true);
   function unpress() { [].forEach.call(root.querySelectorAll('.press'), function (n) { n.classList.remove('press'); }); }
   function fire(e) {
