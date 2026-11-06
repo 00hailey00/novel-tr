@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.8.9
+// @version      1.9.0
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -1303,7 +1303,8 @@
     var it = itemOf(p), hist = p._hist && p._hist.length;
     var h = '<div class="grab"></div><div class="hd"><h3>\uc774 \ubb38\ub2e8</h3><button class="x" data-act="close" aria-label="\ub2eb\uae30">' + I.x + '</button></div>' +
       '<div class="quote">' + esc(p.textContent) + '</div>';
-    if (it && it.done && !p.classList.contains('src')) h += '<button class="wide pri" data-act="paraRetr">' + I.redo + '\uc774 \ubb38\ub2e8\ub9cc \ub2e4\uc2dc \ubc88\uc5ed</button>';
+    // \ud654 \uc804\uccb4\uac00 \ub05d\ub098\uae30 \uc804\uc774\ub77c\ub3c4, \uc774 \ubb38\ub2e8\uc758 \ubc88\uc5ed\uc774 \ub2e4 \ub4e4\uc5b4\uc654\uc73c\uba74 \ub2e4\uc2dc \ubc88\uc5ed\ud560 \uc218 \uc788\uac8c
+    if (it && !p.classList.contains('src') && !p.classList.contains('live')) h += '<button class="wide pri" data-act="paraRetr">' + I.redo + '\uc774 \ubb38\ub2e8\ub9cc \ub2e4\uc2dc \ubc88\uc5ed</button>';
     if (hist) h += '<button class="wide" data-act="paraUndo">' + I.undo + '\uc774\uc804 \ubc88\uc5ed\uc73c\ub85c \ub418\ub3cc\ub9ac\uae30</button>';
     h += '<button class="wide" data-act="paraCopy">' + I.copy + '\ubcf5\uc0ac</button>';
     if (it) h += '<button class="wide" data-act="card">' + I.img + '\uc0ac\uc9c4\uc73c\ub85c \uc800\uc7a5</button>';
@@ -1313,6 +1314,7 @@
   function setPara(it, p, text) {
     setTr(p, text); p.classList.remove('tr'); void p.offsetWidth; p.classList.add('tr');
     if (it.v && p._idx != null) { it.v.lines[p._idx] = text; cachePut(it.ch.url, it.v, it.ch.id); }
+    else (it.pendEd || (it.pendEd = [])).push({ p: p, text: text }); // \uc544\uc9c1 \ubc88\uc5ed \uc911\uc778 \ud654: \ub05d\ub098\uace0 \uc800\uc7a5\ud560 \ub54c \ubc18\uc601
   }
   async function retrParagraph(p) {
     var it = itemOf(p); if (!it) return;
@@ -1599,6 +1601,10 @@
       if (v && v.partial) { clearInterval(tm); return restartTranslate(item); } // \uc81c\ud55c\uc774 \ud480\ub9ac\uae30 \uc9c1\uc804\uc5d0 \ub05d\ub09c \uacbd\uc6b0
       clearInterval(tm); item.v = v; item.done = true; setTitle(item, v.title);
       var k = 0; [].forEach.call(sec.querySelectorAll('p.tr'), function (p) { p._idx = k++; });
+      if (item.pendEd && v && v.lines) { // \ubc88\uc5ed \uc911\uc5d0 \uace0\uce5c \ubb38\ub2e8\uc744 \uc800\uc7a5\ubcf8\uc5d0\ub3c4
+        var ch0 = false; item.pendEd.forEach(function (e) { if (e.p.isConnected && e.p._idx != null && v.lines[e.p._idx] != null) { v.lines[e.p._idx] = e.text; ch0 = true; } });
+        item.pendEd = null; if (ch0) cachePut(ch.url, v, ch.id);
+      }
       meta.remove();
       var row = el('div', 'endrow'), rt = el('button', 'mini'); rt.innerHTML = I.redo + '\uc774 \ud654 \ub2e4\uc2dc \ubc88\uc5ed'; rt.dataset.act = 'retrans'; rt._item = item;
       var fn = el('button', 'mini'); fn.innerHTML = I.user + '\uc778\ubb3c \uc774\ub984 \uad50\uc815'; fn.dataset.act = 'fixNames'; fn._item = item;
