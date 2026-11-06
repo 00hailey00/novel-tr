@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.8.8
+// @version      1.8.9
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -879,8 +879,8 @@
     '*{box-sizing:border-box;margin:0;padding:0;font:inherit;color:inherit}',
     'button{background:none;border:0;cursor:pointer;-webkit-user-select:none;user-select:none;touch-action:manipulation;font-family:var(--ui)}',
     'svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}',
-    '.sc{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}',
-    '.wrap{position:relative;max-width:var(--mw);margin:0 auto;padding:calc(56px + env(safe-area-inset-top)) var(--pad) 0}',
+    '.sc{position:absolute;inset:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}',
+    '.wrap{position:relative;max-width:var(--mw);margin:0 auto;overflow-wrap:anywhere;padding:calc(56px + env(safe-area-inset-top)) var(--pad) 0}',
     // \uc81c\ubaa9 \uc704\uacc4: \uc791\uc740 \ud654 \ubc88\ud638 + \ud070 \uc81c\ubaa9
     'section{padding-top:8px}',
     '.chl{font-family:var(--ui);font-size:13px;font-weight:600;color:var(--ac);letter-spacing:.04em;margin-bottom:10px}',
@@ -1966,8 +1966,27 @@
     });
     return out;
   }
+  // \ud654 \ubaa9\ub85d\uc744 \uc2a4\ud06c\ub9bd\ud2b8\ub85c \ub2a6\uac8c \uadf8\ub9ac\ub294 \ubaa9\ucc28 \ud398\uc774\uc9c0: \uc228\uc740 \ucc3d\uc5d0\uc11c \uc5f4\uc5b4 \ubaa9\ub85d\uc774 \ub354 \ub298\uc9c0 \uc54a\uc744 \ub54c\uae4c\uc9c0 \uae30\ub2e4\ub9bc
+  function getTocLive(url, chUrl) {
+    return new Promise(function (res) {
+      var f = document.createElement('iframe'), t0 = Date.now(), last = -1, lastCh = Date.now(), fin = false;
+      f.__nvKeep = 1; f.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+      f.style.cssText = 'position:fixed;left:-10000px;top:0;width:420px;height:900px;border:0;visibility:hidden';
+      function end(d) { if (fin) return; fin = true; clearInterval(iv); setTimeout(function () { f.remove(); }, 50); res(d); }
+      var iv = setInterval(function () {
+        var d = null; try { d = f.contentDocument; } catch (e) { }
+        if (d && d.readyState !== 'loading' && d.location && d.location.href !== 'about:blank') {
+          var n = 0; try { n = parseToc(d, url, chUrl, true).length; } catch (e) { }
+          if (n !== last) { last = n; lastCh = Date.now(); }
+          if ((n >= 3 && Date.now() - lastCh > 1500) || Date.now() - t0 > 12000) { var c = null; try { c = new DOMParser().parseFromString(d.documentElement.outerHTML, 'text/html'); } catch (e) { } return end(c); }
+        } else if (Date.now() - t0 > 12000) end(null);
+      }, 400);
+      f.src = url; document.documentElement.appendChild(f);
+    });
+  }
   async function loadToc(tocUrl, chUrl, onProg) {
     var doc = await getDoc(tocUrl), base = tocUrl;
+    if (parseToc(doc, tocUrl, chUrl, true).length < 3) { var ld = await getTocLive(tocUrl, chUrl); if (ld) doc = ld; }
     var fl = [].filter.call(doc.querySelectorAll('a[href]'), function (a) { return FULL_T.test(a.textContent) && a.textContent.length < 20; })[0];
     if (fl) { try { var fu = new URL(fl.getAttribute('href'), tocUrl).href; if (fu.split('#')[0] !== tocUrl.split('#')[0]) { doc = await getDoc(fu); base = fu; } } catch (e) { } }
     var all = [], seen = {};
@@ -2038,7 +2057,7 @@
       tocMem[tocUrl] = list;
     }
     if (pageMode !== 'toc') return;
-    if (!list.length) { pgB.innerHTML = '<div class="empty">\ubaa9\ucc28\uc5d0\uc11c \ud654 \ubaa9\ub85d\uc744 \ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694.</div><button class="btn pri" style="display:flex;margin:0 auto" data-act="pick" data-k="toc">\ub2e4\ub978 \ubaa9\ucc28 \ub9c1\ud06c \uace0\ub974\uae30</button>'; return; }
+    var noSite = !list.length; // \uc0ac\uc774\ud2b8 \ubaa9\ucc28\ub97c \ubabb \uc77d\uc73c\uba74 \uc77d\uace0 \ubc88\uc5ed\ud574 \ub454 \ud654\ub85c\ub9cc \ubaa9\ucc28\ub97c \ub9cc\ub4e6 (\uc544\ub798 '\ub07c\uc6cc \ub123\uae30'\uac00 \ucc44\uc6c0)
     // \ubaa9\ucc28\uc5d0 \uc548 \ubcf4\uc774\ub294 \ud654\ub77c\ub3c4 \uc774 \uc791\ud488\uc73c\ub85c \ubc88\uc5ed\ud574 \ub454 \ud654\ub294 \ub07c\uc6cc \ub123\uc74c (\uc0ac\uc774\ud2b8 \ubaa9\ucc28\uac00 \uc77c\ubd80\ub9cc \ubcf4\uc5ec \uc918\ub3c4 \uc77d\ub358 \uacf3\uc744 \ucc3e\uc744 \uc218 \uc788\uac8c)
     var have = {}; list.forEach(function (c) { have[ckey(c.u)] = 1; });
     // '\ucc98\uc74c\ubd80\ud130 \uc77d\uae30' \uac19\uc740 \ub9c1\ud06c\ub294 1\ud654\uc640 \uacb9\uce58\ub2c8 \ube8c
@@ -2058,6 +2077,7 @@
     // \ud654 \ubc88\ud638\uac00 \ud06c\uac8c \uac74\ub108\ub6f0\ub294 \uacf3: \uc0ac\uc774\ud2b8 \ubaa9\ucc28\uac00 \uc77c\ubd80\ub9cc \ubcf4\uc5ec \uc8fc\ub294 \uacbd\uc6b0 \uc54c\ub824 \uc90c
     var gap = null, prevN = null;
     list.forEach(function (c) { var n = chNum(c.t); if (n != null && n >= 1) { if (prevN != null && n - prevN > 5 && !gap) gap = [prevN + 1, n - 1]; prevN = n; } });
+    if (noSite) gap = null;
     var read = (libAll()[it.ch.id] || {}).read || {}, cur = it.ch.url.replace(/#.*$/, ''), readN = 0, trN = 0;
     var noSub = [];
     // \uc5ec\ub7ec \ud654\uc5d0 \ub611\uac19\uc740 \uc18c\uc81c\ubaa9\uc774 \ubd99\uc5b4 \uc788\uc73c\uba74(\uc608\uc804 \ubc84\uc804\uc774 \uc0ac\uc774\ud2b8 \ubb38\uad6c\ub97c \uc18c\uc81c\ubaa9\uc73c\ub85c \uc798\ubabb \ub123\uc740 \uacbd\uc6b0) \uc9c0\uc6b0\uace0 \ubc88\ud638\ub9cc \ub0a8\uae40
@@ -2087,8 +2107,10 @@
         (lab ? '<i class="rn">' + lab + '</i>' : '') + esc(subT || subO || (lab ? '' : LOADT.test(c.t) ? '\uc81c\ubaa9 \uc5c6\ub294 \ud654' : c.t)) + (small ? '<small>' + esc(small) + '</small>' : '') + '</span>' +
         (isCur ? '<span class="bdg">\uc77d\ub294 \uc911</span>' : tr ? '<span class="bdg">\ubc88\uc5ed\ub428</span>' : '') + '</button>';
     });
+    if (noSite && !list.length) { pgB.innerHTML = '<div class="empty">\ubaa9\ucc28\uc5d0\uc11c \ud654 \ubaa9\ub85d\uc744 \ucc3e\uc9c0 \ubabb\ud588\uc5b4\uc694.</div><button class="btn pri" style="display:flex;margin:0 auto" data-act="pick" data-k="toc">\ub2e4\ub978 \ubaa9\ucc28 \ub9c1\ud06c \uace0\ub974\uae30</button>'; return; }
     pgB.innerHTML = '<div class="tochd"><div class="tst"><b>' + list.length + '\ud654</b><span>\uc77d\uc74c ' + readN + '</span><span>\ubc88\uc5ed ' + trN + '</span><button class="trf ml" data-act="search">' + I.search + '\uac80\uc0c9</button><button class="trf" data-act="tocRefresh">' + I.redo + '\uc0c8\ub85c\uace0\uce68</button></div>' +
       '<div class="seg tj"><button data-act="tocTop" aria-label="\ucc98\uc74c\uc73c\ub85c">' + I.up + '</button><button data-act="tocCur">\uc77d\ub358 \uacf3</button><button data-act="tocLastTr">\ubc88\uc5ed \ub05d</button><button data-act="tocEnd" aria-label="\ucd5c\uc2e0 \ud654\ub85c">' + I.down + '</button></div></div>' +
+      (noSite ? '<p class="tgap">\uc0ac\uc774\ud2b8 \ubaa9\ucc28\ub97c \uc77d\uc9c0 \ubabb\ud574\uc11c \ubc88\uc5ed\ud574 \ub454 \ud654\ub9cc \ubcf4\uc5ec\uc694. <button class="tsub" style="display:inline;width:auto;border:0;padding:0" data-act="pick" data-k="toc">\ubaa9\ucc28 \ub9c1\ud06c \uace0\ub974\uae30</button></p>' : '') +
       (gap ? '<p class="tgap">' + gap[0] + (gap[1] > gap[0] ? '~' + gap[1] : '') + '\ud654\ub294 \uc0ac\uc774\ud2b8 \ubaa9\ucc28\uc5d0 \uc5c6\uc5b4\uc694</p>' : '') +
       (noSub.length > 2 ? '<button class="tsub" data-act="subFind">\uc6d0\ubcf8\uc5d0\uc11c \uc18c\uc81c\ubaa9 \ucc3e\uae30 (' + noSub.length + '\ud654)</button>' : '') + rows.join('');
     tocNoSub = noSub; idxFlush();
