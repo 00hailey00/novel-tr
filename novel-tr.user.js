@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.9.2
+// @version      1.9.3
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -16,8 +16,8 @@
 // @inject-into  content
 // @run-at       document-end
 // @noframes
-// @downloadURL  https://00hailey00.github.io/novel-tr/novel-tr.user.js
-// @updateURL    https://00hailey00.github.io/novel-tr/novel-tr.user.js
+// @downloadURL  https://raw.githubusercontent.com/00hailey00/novel-tr/main/novel-tr.user.js
+// @updateURL    https://raw.githubusercontent.com/00hailey00/novel-tr/main/novel-tr.user.js
 // ==/UserScript==
 (async function () {
   'use strict';
