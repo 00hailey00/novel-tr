@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         소설 번역 뷰어
 // @namespace    https://github.com/00hailey00/novel-tr
-// @version      1.9.4
+// @version      1.9.5
 // @description  중국어 웹소설을 Vertex Gemini로 번역해 깔끔한 읽기 화면으로 보여줘요
 // @match        *://*/*
 // @match        https://00hailey00.github.io/novel-tr/settings.html*
@@ -1951,6 +1951,15 @@
       renderToc();
     } catch (e) { toast('\uc18c\uc81c\ubaa9\uc744 \ubc88\uc5ed\ud558\uc9c0 \ubabb\ud588\uc5b4\uc694: ' + String(e.message).slice(0, 40)); }
   }
+  // \ubaa9\ucc28 \ub9c1\ud06c \uae00\uc790\uc5d0 \ubd99\uc740 \uc0ac\uc774\ud2b8 \ud45c\uc2dc(\u514d\u8d39\u00b7\u6700\u65b0\u00b7VIP \uac19\uc740 \ub531\uc9c0, \uc55e\uc758 \uc21c\ubc88)\ub97c \uac77\uc5b4\ub0c4: '09 \u6700\u65b0 \u7b2c8\u7ae0' \u2192 '\u7b2c8\u7ae0', '\u7b2c2\u7ae0 \u514d\u8d39' \u2192 '\u7b2c2\u7ae0'
+  var TOCTAG = /(^|\s)(\u514d\u8d39|\u514d\u8cbb|\u6700\u65b0|\u6700\u65b0\u7ae0[\u8282\u7bc0]|VIP|vip|\u6536\u8d39|\u6536\u8cbb|\u4ed8\u8d39|\u4ed8\u8cbb|new|NEW|hot|HOT|\u70ed|\u71b1|\u8350|\u85a6|\u63a8\u8350|\u63a8\u85a6|\u66f4\u65b0|\u8a66\u8b80|\u8bd5\u8bfb|\u9650\u514d)(?=\s|$)/g;
+  function tocText(raw) {
+    var t0 = String(raw || '').replace(/\s+/g, ' ').trim(), t = t0;
+    for (var i = 0; i < 3; i++) t = t.replace(TOCTAG, ' ').replace(/\s+/g, ' ').trim();
+    t = t.replace(/(\u514d\u8d39|\u514d\u8cbb|\u6536\u8d39|\u6536\u8cbb|\u4ed8\u8d39|\u4ed8\u8cbb|VIP)$/, '').trim();
+    t = t.replace(/^\d{1,4}[.\u3001]?\s+(?=\u7b2c\s*[\d\u96f6\u3007\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\u767e\u5343\u4e24]+\s*[\u7ae0\u56de\u8282\u7bc0\u8bdd\u8a71])/, ''); // \uc21c\ubc88 + \u7b2cN\u7ae0
+    return t || t0;
+  }
   function parseToc(doc, tocUrl, chUrl, raw) {
     var dir = workId(chUrl), seen = {}, out = [];
     var CHRX = /\u7b2c\s*[\d\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\u767e\u5343\u96f6\u3007\u4e24]+\s*[\u7ae0\u56de\u8282\u7bc0\u8bdd\u8a71]|^\s*\d+[\.\u3001\s]/;
@@ -1959,7 +1968,7 @@
       out = []; seen = {};
       as.forEach(function (a) {
         var u; try { u = new URL(a.getAttribute('href'), tocUrl).href.replace(/#.*$/, ''); } catch (e) { return; }
-        var t = a.textContent.replace(/\s+/g, ' ').trim();
+        var t = tocText(a.textContent);
         if (!t || seen[u] || u === tocUrl || isPageLink(u, t, tocUrl) || !test(u, t)) return; seen[u] = 1; out.push({ u: u, t: t });
       });
     }
